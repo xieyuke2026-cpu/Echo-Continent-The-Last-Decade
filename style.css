@@ -1,0 +1,107 @@
+* { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body { height:100%; background:#17181c; color:#e8e2d4; font-family:"PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif; overflow:hidden; }
+.hidden { display:none !important; }
+button { font-family:inherit; cursor:pointer; }
+
+/* ---------- 标题 ---------- */
+#title-screen { position:fixed; inset:0; display:flex; align-items:center; justify-content:center;
+  background:radial-gradient(ellipse at 50% 35%, #2c2e35 0%, #1a1b20 55%, #101116 100%); z-index:50; }
+.title-inner { text-align:center; padding:20px; }
+.title-logo { font-size:min(72px,14vw); letter-spacing:.18em; color:#ddd3b8; text-shadow:0 0 34px rgba(221,211,184,.25); font-weight:300; }
+.title-sub { margin-top:10px; color:#8d8fa0; letter-spacing:.3em; font-size:min(13px,3vw); }
+.title-quote { margin:34px 0 30px; color:#b7ac8e; font-size:min(20px,4.6vw); letter-spacing:.12em; }
+.title-btns { display:flex; flex-direction:column; gap:12px; align-items:center; }
+.big-btn { background:#3a3b46; color:#eee6cf; border:1px solid #6d6a58; padding:13px 44px; font-size:17px; letter-spacing:.25em; border-radius:3px; transition:.15s; }
+.big-btn:hover { background:#4a4b58; border-color:#b7ac8e; }
+.big-btn.ghost { background:transparent; color:#a49e8a; }
+.title-foot { margin-top:34px; color:#5f6170; font-size:12px; letter-spacing:.08em; }
+
+/* ---------- HUD ---------- */
+#game-screen { position:fixed; inset:0; display:flex; flex-direction:column; }
+#hud { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:8px 12px; background:#1e1f26; border-bottom:1px solid #34353f; flex-wrap:wrap; z-index:5; }
+.hud-left { display:flex; align-items:center; gap:10px; }
+.hud-name { color:#ddd3b8; letter-spacing:.15em; }
+.hud-lv { color:#9d9fb2; font-size:13px; }
+.xpbar { width:110px; height:7px; background:#101116; border:1px solid #3c3d49; border-radius:4px; overflow:hidden; }
+#hud-xpfill { height:100%; width:0%; background:linear-gradient(90deg,#8fa3c7,#c9d6ee); transition:width .4s; }
+.hud-right { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+.hud-item { font-size:13px; color:#a49e8a; } .hud-item b { color:#eee6cf; }
+.hud-btn { background:#2c2d38; border:1px solid #4a4b58; color:#ddd3b8; padding:6px 14px; border-radius:3px; font-size:13px; letter-spacing:.1em; }
+.hud-btn:hover { background:#3a3b48; }
+#objective { padding:6px 12px; background:#23242e; color:#8fa3c7; font-size:13px; letter-spacing:.06em; border-bottom:1px solid #2c2d38; }
+#objective-text { color:#c9d6ee; }
+#canvas-wrap { flex:1; position:relative; display:flex; align-items:center; justify-content:center; background:#101116; overflow:hidden; }
+canvas { max-width:100%; max-height:100%; image-rendering:auto; background:#23211d; }
+#toast { position:absolute; top:14px; left:50%; transform:translateX(-50%); background:rgba(20,20,26,.92); border:1px solid #6d6a58; color:#eee6cf; padding:9px 22px; border-radius:3px; font-size:15px; letter-spacing:.08em; z-index:8; pointer-events:none; text-align:center; }
+
+/* ---------- 对话 ---------- */
+#dialog { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; width:min(860px,94vw); background:rgba(22,22,29,.96); border:1px solid #57543f; border-radius:4px; padding:16px 20px 12px; z-index:20; cursor:pointer; box-shadow:0 8px 40px rgba(0,0,0,.6); }
+#dialog-who { color:#c9a86a; font-size:14px; letter-spacing:.2em; margin-bottom:6px; }
+#dialog-text { font-size:17px; line-height:1.65; min-height:52px; color:#efe9da; white-space:pre-wrap; }
+#dialog-next { text-align:right; color:#6d6f80; font-size:12px; margin-top:4px; animation:blink 1.2s infinite; }
+@keyframes blink { 50% { opacity:.25; } }
+
+/* ---------- 触屏 ---------- */
+#touch-ui { display:none; }
+@media (pointer:coarse) {
+  #touch-ui { display:block; }
+  #joystick { position:fixed; left:22px; bottom:110px; width:118px; height:118px; border-radius:50%; background:rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.18); z-index:15; touch-action:none; }
+  #joy-knob { position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px; border-radius:50%; background:rgba(255,255,255,.16); border:1px solid rgba(255,255,255,.3); }
+  #btn-act { position:fixed; right:26px; bottom:126px; width:76px; height:76px; border-radius:50%; background:rgba(201,168,106,.25); border:1px solid #c9a86a; color:#eee6cf; font-size:16px; z-index:15; }
+  #dialog { bottom:210px; }
+}
+
+/* ---------- 战斗 ---------- */
+#battle-screen { position:fixed; inset:0; background:linear-gradient(180deg,#26241f 0%,#1b1a17 60%,#141310 100%); z-index:30; display:flex; flex-direction:column; }
+#battle-stage { flex:1; display:flex; flex-direction:column; justify-content:space-around; padding:18px 4vw; }
+#battle-enemies { display:flex; gap:4vw; justify-content:center; min-height:180px; align-items:flex-start; }
+#battle-party { display:flex; gap:14px; justify-content:center; flex-wrap:wrap; }
+.fighter { text-align:center; }
+.fighter .avatar { width:92px; height:92px; border-radius:50%; margin:0 auto 8px; display:flex; align-items:center; justify-content:center; font-size:34px; border:2px solid #57543f; background:radial-gradient(circle at 40% 35%, #454331, #26251d); color:#e8dfc2; position:relative; }
+.fighter.enemy .avatar { background:radial-gradient(circle at 40% 35%, #3d3f4d, #1e1f26); border-color:#3c3d49; color:#9d9fb2; border-radius:12px; }
+.fighter .fname { font-size:14px; color:#ddd3b8; letter-spacing:.06em; }
+.fighter.enemy .fname { color:#9d9fb2; }
+.hpbar { width:110px; height:8px; background:#101116; border:1px solid #3c3d49; border-radius:4px; margin:5px auto 0; overflow:hidden; }
+.hpbar > div { height:100%; background:linear-gradient(90deg,#b8552f,#e08a4c); transition:width .35s; }
+.fighter.ally .hpbar > div { background:linear-gradient(90deg,#5f8f5a,#93c48d); }
+.fighter.dead { opacity:.3; filter:grayscale(1); }
+.fighter .fhp { font-size:11px; color:#8d8fa0; }
+#sound-meter { text-align:center; color:#c9a86a; font-size:13px; letter-spacing:.15em; margin-top:2px; }
+#battle-log { height:118px; overflow-y:auto; background:rgba(10,10,14,.55); border-top:1px solid #34353f; padding:10px 16px; font-size:14px; line-height:1.7; color:#c9c4b2; }
+#battle-log .good { color:#93c48d; } #battle-log .bad { color:#e08a6a; } #battle-log .sys { color:#8fa3c7; }
+#battle-actions { display:flex; gap:10px; justify-content:center; padding:14px; background:#1e1f26; border-top:1px solid #34353f; flex-wrap:wrap; }
+.act-btn { background:#2c2d38; border:1px solid #57543f; color:#eee6cf; padding:11px 22px; font-size:15px; border-radius:3px; letter-spacing:.08em; }
+.act-btn:hover:not(:disabled) { background:#3d3e4c; }
+.act-btn:disabled { opacity:.4; cursor:default; }
+.act-btn.small { padding:8px 14px; font-size:13px; }
+
+/* ---------- 面板 ---------- */
+#panel { position:fixed; inset:0; background:rgba(8,8,12,.72); z-index:40; display:flex; align-items:center; justify-content:center; }
+#panel-box { width:min(680px,94vw); max-height:88vh; background:#1e1f26; border:1px solid #57543f; border-radius:5px; display:flex; flex-direction:column; overflow:hidden; }
+#panel-head { display:flex; justify-content:space-between; align-items:center; padding:13px 18px; border-bottom:1px solid #34353f; color:#ddd3b8; letter-spacing:.2em; font-size:16px; }
+#panel-close { background:none; border:none; color:#9d9fb2; font-size:24px; line-height:1; }
+#panel-body { padding:16px 18px; overflow-y:auto; font-size:14.5px; line-height:1.7; color:#d8d2c0; }
+#panel-body h4 { color:#c9a86a; letter-spacing:.12em; margin:14px 0 6px; font-weight:600; }
+#panel-body h4:first-child { margin-top:0; }
+.pool-info { color:#8d8fa0; font-size:13px; }
+.gacha-btns { display:flex; gap:12px; margin:14px 0; }
+.pull-results { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; }
+.pull-card { width:104px; border:1px solid #4a4b58; border-radius:4px; padding:10px 6px; text-align:center; background:#23242e; animation:pop .3s; }
+.pull-card.r5 { border-color:#c9a86a; box-shadow:0 0 14px rgba(201,168,106,.35); }
+.pull-card.r4 { border-color:#7d6ba8; }
+.pull-card .pc-ava { font-size:30px; }
+.pull-card .pc-name { font-size:13px; margin-top:4px; color:#eee6cf; }
+.pull-card .pc-tag { font-size:11px; color:#8d8fa0; }
+@keyframes pop { from { transform:scale(.7); opacity:0; } }
+.roster-row { display:flex; justify-content:space-between; align-items:center; padding:8px 10px; border:1px solid #34353f; border-radius:4px; margin-bottom:8px; background:#23242e; }
+.roster-row .rr-name { color:#eee6cf; }
+.roster-row .rr-sub { color:#8d8fa0; font-size:12px; }
+.shop-row { display:flex; justify-content:space-between; align-items:center; padding:9px 10px; border-bottom:1px dashed #34353f; }
+.shop-row button, .roster-row button { background:#2c2d38; border:1px solid #57543f; color:#eee6cf; padding:6px 14px; border-radius:3px; font-size:13px; }
+.shop-row button:disabled { opacity:.4; }
+
+/* ---------- 弹窗 ---------- */
+#modal { position:fixed; inset:0; background:rgba(8,8,12,.78); z-index:60; display:flex; align-items:center; justify-content:center; }
+#modal-box { width:min(480px,92vw); background:#1e1f26; border:1px solid #c9a86a; border-radius:5px; padding:26px 28px; text-align:center; }
+#modal-title { font-size:20px; color:#ddd3b8; letter-spacing:.2em; margin-bottom:12px; }
+#modal-body { font-size:15px; line-height:1.8; color:#d8d2c0; margin-bottom:20px; white-space:pre-wrap; }

@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>回声大陆 · Echo Continent</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="app">
+  <!-- 标题画面 -->
+  <div id="title-screen">
+    <div class="title-inner">
+      <div class="title-logo">回声大陆</div>
+      <div class="title-sub">ECHO CONTINENT · 第六纪元「残响」· 最后十年</div>
+      <div class="title-quote">「这一次，别再迟到。」</div>
+      <div class="title-btns">
+        <button id="btn-new" class="big-btn">新的纪元</button>
+        <button id="btn-continue" class="big-btn ghost">继续（读取存档）</button>
+      </div>
+      <div class="title-foot">v0.1 · 序章「灰烬原野」 · 键盘 WASD/方向键移动 · E 互动 · 触屏有虚拟摇杆</div>
+    </div>
+  </div>
+
+  <!-- 游戏画面 -->
+  <div id="game-screen" class="hidden">
+    <div id="hud">
+      <div class="hud-left">
+        <span class="hud-name">余音之子</span>
+        <span class="hud-lv">Lv.<b id="hud-level">1</b></span>
+        <div class="xpbar"><div id="hud-xpfill"></div></div>
+      </div>
+      <div class="hud-right">
+        <span class="hud-item" title="纯正音符">♪ <b id="hud-notes">0</b>/3</span>
+        <span class="hud-item" title="弦币">弦币 <b id="hud-coins">0</b></span>
+        <span class="hud-item" title="共鸣结晶">结晶 <b id="hud-crystals">0</b></span>
+        <span class="hud-item" title="回声碎片">碎片 <b id="hud-shards">0</b></span>
+        <button id="btn-gacha" class="hud-btn">共鸣</button>
+        <button id="btn-party" class="hud-btn">队伍</button>
+        <button id="btn-save" class="hud-btn">存档</button>
+      </div>
+    </div>
+    <div id="objective">目标：<span id="objective-text"></span></div>
+    <div id="canvas-wrap">
+      <canvas id="cv" width="960" height="600"></canvas>
+      <div id="toast" class="hidden"></div>
+    </div>
+    <div id="dialog" class="hidden">
+      <div id="dialog-who"></div>
+      <div id="dialog-text"></div>
+      <div id="dialog-next">▼ 点击 / 按 E 继续</div>
+    </div>
+    <!-- 触屏控制 -->
+    <div id="touch-ui">
+      <div id="joystick"><div id="joy-knob"></div></div>
+      <button id="btn-act">互动</button>
+    </div>
+  </div>
+
+  <!-- 战斗画面 -->
+  <div id="battle-screen" class="hidden">
+    <div id="battle-stage">
+      <div id="battle-enemies"></div>
+      <div id="battle-party"></div>
+    </div>
+    <div id="battle-log"></div>
+    <div id="battle-actions"></div>
+  </div>
+
+  <!-- 通用面板（共鸣 / 队伍 / 商店） -->
+  <div id="panel" class="hidden">
+    <div id="panel-box">
+      <div id="panel-head"><span id="panel-title"></span><button id="panel-close">×</button></div>
+      <div id="panel-body"></div>
+    </div>
+  </div>
+
+  <!-- 结算 / 提示弹窗 -->
+  <div id="modal" class="hidden">
+    <div id="modal-box">
+      <div id="modal-title"></div>
+      <div id="modal-body"></div>
+      <button id="modal-ok" class="big-btn">好</button>
+    </div>
+  </div>
+</div>
+<script src="js/data.js"></script>
+<script src="js/battle.js"></script>
+<script src="js/gacha.js"></script>
+<script src="js/world.js"></script>
+</body>
+</html>
