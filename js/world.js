@@ -12,14 +12,16 @@ const Game = (() => {
     return {
       stage: 0, level: 1, xp: 0, coins: 50, crystals: 0, shards: 0, notesGot: [],
       items: { bing: 1, yinxiang: 0 },
-      chars: {}, party: [], pullsSince5: 0,
+      chars: {}, party: [], pullsSince5: 0, weapons: {},
       flags: {}, echoCount: 0, echoesDone: false, letterState: 0,
       pos: { x: 10.5, y: 25.5 },
     };
   }
   let S = newState();
-  let player = { x: 10.5, y: 25.5, moving: false };
-  let ripples = [], stepAcc = 0, encounterCd = 0, started = false;
+  let player = { x: 10.5, y: 25.5, moving: false, face: 'down', walkT: 0 };
+  let ripples = [], stepAcc = 0, encounterCd = 0, started = false, bellT = 0;
+  const motes = Array.from({ length: 42 }, (_, i) => ({ x: (i * 173) % 960, y: (i * 271) % 600, s: 0.5 + (i % 5) * 0.22, o: 0.10 + (i % 4) * 0.05 }));
+  function objPos(o) { return { x: o.rx !== undefined ? o.rx : o.x, y: o.ry !== undefined ? o.ry : o.y }; }
 
   function save() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(S)); } catch (e) {} }
   function load() {
@@ -27,6 +29,7 @@ const Game = (() => {
       const raw = localStorage.getItem(SAVE_KEY);
       if (!raw) return false;
       S = Object.assign(newState(), JSON.parse(raw));
+      S.weapons = S.weapons || {};
       player.x = S.pos.x; player.y = S.pos.y;
       return true;
     } catch (e) { return false; }
@@ -42,13 +45,27 @@ const Game = (() => {
     const atk = Math.round((12 + (S.level - 1) * 2 + notes * 3) * (1 + 0.06 * (S.chars.yuyin || 0)));
     return { hp, atk };
   }
+  function weaponMods(cid) {
+    const w = Object.values(WEAPONS).find(x => x.owner === cid);
+    if (!w) return {};
+    const lvl = (S.weapons || {})[w.id] || 0;
+    if (!lvl) return {};
+    const bs = 1 + 0.08 * (lvl - 1); // 精炼放大
+    return {
+      wName: w.name + (lvl > 1 ? ' · 精炼' + lvl : ''),
+      wSkill: 1 + (w.eff.skillBonus || 0) * bs,
+      wHeal: 1 + (w.eff.healBonus || 0) * bs,
+      wCrit: (w.eff.crit || 0) + 0.01 * (lvl - 1),
+      wHealSound: w.eff.healSound || 0,
+    };
+  }
   function getParty() {
     const ps = playerStats();
-    const main = { cid: 'yuyin', name: '余音之子', glyph: '律', color: '#c9a86a', hp: ps.hp, atk: ps.atk, skill: CHARACTERS.yuyin.skill };
+    const main = { cid: 'yuyin', name: '余音之子', glyph: '律', color: '#c9a86a', hp: ps.hp, atk: ps.atk, skill: CHARACTERS.yuyin.skill, ...weaponMods('yuyin') };
     const mates = S.party.filter(id => S.chars[id]).map(id => {
       const c = CHARACTERS[id];
       const scale = (1 + 0.05 * (S.level - 1)) * soulBonus(id);
-      return { cid: id, name: c.name, glyph: c.glyph, color: c.color, hp: Math.round(c.hp * scale), atk: Math.round(c.atk * scale), skill: c.skill };
+      return { cid: id, name: c.name, glyph: c.glyph, color: c.color, hp: Math.round(c.hp * scale), atk: Math.round(c.atk * scale), skill: c.skill, ...weaponMods(id) };
     });
     return [main, ...mates];
   }
@@ -100,6 +117,18 @@ const Game = (() => {
   // 残碑 / 界碑 / 鸣石
   solid(10, 21, 1, 1, 'stele'); solid(12, 3, 1, 1, 'stele');
   solid(6, 38, 1, 1, 'rock'); solid(14, 42, 1, 1, 'rock'); solid(17, 36, 1, 1, 'rock'); solid(8, 41, 1, 1, 'bigstone');
+  // 道具（密度层）：村灯 / 木箱 / 墓碑 / 残柱 / 田栅栏
+  solid(30, 20, 1, 1, 'lamp'); solid(41, 22, 1, 1, 'lamp');
+  solid(53, 24, 1, 1, 'crate'); solid(58, 23, 1, 1, 'crate');
+  solid(48, 18, 1, 1, 'grave'); solid(66, 5, 1, 1, 'grave');
+  solid(51, 12, 1, 1, 'pillar'); solid(64, 15, 1, 1, 'pillar');
+  for (let fx = 27; fx <= 40; fx++) if (fx !== 33 && fx !== 34) solid(fx, 33, 1, 1, 'fence');
+  // 地面装饰（无碰撞）：灰草丛
+  const DECOR = [];
+  for (let x = 2; x < TW - 2; x++) for (let y = 4; y < TH - 2; y++) {
+    const t = tileAt(x, y);
+    if ((t === 'ash' || t === 'slope' || t === 'dirt') && hash(x + 500, y) > 0.94) DECOR.push({ x: x + 0.5, y: y + 0.75, kind: 'tuft' });
+  }
   // 灰原散石与枯树（确定性散布，避开功能区）
   for (let x = 2; x < TW - 2; x++) for (let y = 5; y < TH - 2; y++) {
     const t = tileAt(x, y);
@@ -115,8 +144,8 @@ const Game = (() => {
   const OBJS = [
     { id: 'stele', x: 10.5, y: 20.4, glyph: '碑', name: '残碑', color: '#8d8fa0' },
     { id: 'elder', x: 35.5, y: 21.5, glyph: '婆', name: '村长婆婆', color: '#c9a86a', npc: true, spr: 'elder' },
-    { id: 'villagerA', x: 31.5, y: 24.5, glyph: '灰', name: '守碑人·阿灰', color: '#9d9fb2', npc: true, spr: 'villagerA' },
-    { id: 'villagerB', x: 38.5, y: 25.5, glyph: '满', name: '守碑人·小满', color: '#93c48d', npc: true, spr: 'villagerB' },
+    { id: 'villagerA', x: 31.5, y: 24.5, glyph: '灰', name: '守碑人·阿灰', color: '#9d9fb2', npc: true, spr: 'villagerA', wander: [[31.5, 24.5], [34, 27.5]] },
+    { id: 'villagerB', x: 38.5, y: 25.5, glyph: '满', name: '守碑人·小满', color: '#93c48d', npc: true, spr: 'villagerB', wander: [[38.5, 25.5], [36.8, 22.8]] },
     { id: 'bell', x: 27.5, y: 22.6, glyph: '钟', name: '村口大钟', color: '#b7ac8e' },
     { id: 'well', x: 35.5, y: 22.4, glyph: '井', name: '村里的井', color: '#8fa3c7' },
     { id: 'shisheng', x: 55.5, y: 23.5, glyph: '拾', name: '拾声', color: '#b87748', npc: true, spr: 'shisheng' },
@@ -145,10 +174,17 @@ const Game = (() => {
     $('dialog').classList.remove('hidden');
     renderDlg();
   }
+  const FACE_MAP = { '余音之子': 'yuyin', '村长婆婆': 'elder', '拾声': 'shisheng', '阿迟': 'achi', '无我失声者': 'wuwo', '守碑人·阿灰': 'villagerA', '守碑人·小满': 'villagerB' };
   function renderDlg() {
     const [who, text] = dlg.lines[dlg.i];
     $('dialog-who').textContent = who || '——';
     $('dialog-text').textContent = text;
+    const face = $('dialog-face');
+    if (face) {
+      const spr = FACE_MAP[who];
+      if (spr) { face.src = Sprites.url(spr, 3); face.style.display = 'block'; }
+      else face.style.display = 'none';
+    }
   }
   function advanceDlg() {
     if (!dlg) return false;
@@ -186,7 +222,8 @@ const Game = (() => {
     let best = null, bd = 1.8;
     for (const o of OBJS) {
       if (!objVisible(o)) continue;
-      const d = Math.hypot(o.x - player.x, o.y - player.y);
+      const p = objPos(o);
+      const d = Math.hypot(p.x - player.x, p.y - player.y);
       if (d < bd) { bd = d; best = o; }
     }
     if (best) handleObj(best);
@@ -369,6 +406,10 @@ const Game = (() => {
     const len = Math.hypot(vx, vy);
     player.moving = len > 0.15;
     if (player.moving) {
+      player.face = Math.abs(vx) > Math.abs(vy) ? (vx > 0 ? 'right' : 'left') : (vy > 0 ? 'down' : 'up');
+      player.walkT += dt;
+    } else player.walkT = 0;
+    if (player.moving) {
       vx /= Math.max(1, len); vy /= Math.max(1, len);
       const sp = 3.4;
       const nx = player.x + vx * sp * dt, ny = player.y + vy * sp * dt;
@@ -377,7 +418,7 @@ const Game = (() => {
       S.pos = { x: player.x, y: player.y };
       // 脚步声涟漪
       stepAcc += dt;
-      if (stepAcc > 0.28) { stepAcc = 0; ripples.push({ x: player.x, y: player.y, r: 0.2, a: 0.5 }); }
+      if (stepAcc > 0.28) { stepAcc = 0; ripples.push({ x: player.x, y: player.y, r: 0.2, a: 0.5, maxR: 1.6 }); }
       // 半埋之城随机遇敌（取钟舌途中）
       if (encounterCd > 0) encounterCd -= dt;
       else if (S.stage === 2 && inCity(player.x, player.y) && Math.random() < dt * 0.16) {
@@ -403,7 +444,28 @@ const Game = (() => {
         S.flags.grayWarned = true; say(DIALOGS.grayline); save();
       }
     }
-    ripples = ripples.filter(r => (r.r += dt * 1.6) < 1.6 && (r.a -= dt * 0.33) > 0);
+    // NPC 巡游（村民在村里走动、停留）
+    for (const o of OBJS) {
+      if (!o.wander) continue;
+      if (o.rx === undefined) { o.rx = o.x; o.ry = o.y; o.wp = 0; o.wait = Math.random() * 2; o.face = 'down'; o.moving = false; o.walkT = 0; }
+      if (o.wait > 0) { o.wait -= dt; o.moving = false; continue; }
+      const tgt = o.wander[(o.wp + 1) % o.wander.length];
+      const dx = tgt[0] - o.rx, dy = tgt[1] - o.ry, d = Math.hypot(dx, dy);
+      if (d < 0.08) { o.wp = (o.wp + 1) % o.wander.length; o.wait = 1.4 + Math.random() * 1.8; o.moving = false; continue; }
+      o.rx += dx / d * 0.55 * dt; o.ry += dy / d * 0.55 * dt;
+      o.face = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
+      o.moving = true; o.walkT += dt;
+    }
+    // 钟声波纹（修钟之后，钟塔每隔一阵荡开一圈声波）
+    bellT += dt;
+    if (S.stage >= 4 && bellT > 4.5) { bellT = 0; ripples.push({ x: 27, y: 20.5, r: 0.4, a: 0.5, maxR: 10, slow: true }); }
+    // 灰尘粒子（屏幕空间缓漂）
+    for (const m of motes) {
+      m.x -= dt * 7 * m.s; m.y += dt * 2.2 * m.s;
+      if (m.x < -4) { m.x = 964; m.y = Math.random() * 600; }
+      if (m.y > 604) m.y = -4;
+    }
+    ripples = ripples.filter(r => (r.r += dt * (r.slow ? 0.9 : 1.6)) < (r.maxR || 1.6) && (r.a -= dt * (r.slow ? 0.055 : 0.33)) > 0);
   }
 
   // ---------- 绘制 ----------
@@ -444,6 +506,18 @@ const Game = (() => {
       const dy = sy + s.h * TILE - img.height;
       ctx.drawImage(img, dx, dy);
     }
+    // 地面装饰（灰草丛）
+    for (const d of DECOR) {
+      const sx = (d.x - camX) * TILE, sy = (d.y - camY) * TILE;
+      if (sx < -30 || sy < -30 || sx > cv.width + 30 || sy > cv.height + 30) continue;
+      const img = Sprites.obj('tuft', 1, 1);
+      ctx.drawImage(img, sx - img.width / 2, sy - img.height + 4);
+    }
+    // 灰尘粒子
+    for (const m of motes) {
+      ctx.fillStyle = `rgba(232,226,212,${m.o})`;
+      ctx.fillRect(m.x, m.y, 2, 2);
+    }
     // 涟漪（脚步声）
     for (const r of ripples) {
       ctx.strokeStyle = `rgba(201,214,238,${r.a})`; ctx.lineWidth = 1.5;
@@ -452,20 +526,26 @@ const Game = (() => {
     // 交互对象
     for (const o of OBJS) {
       if (!objVisible(o)) continue;
-      const sx = (o.x - camX) * TILE, sy = (o.y - camY) * TILE;
-      if (sx < -40 || sy < -40 || sx > cv.width + 40 || sy > cv.height + 40) continue;
+      const op = objPos(o);
+      const sx = (op.x - camX) * TILE, sy = (op.y - camY) * TILE;
+      if (sx < -40 || sy < -60 || sx > cv.width + 40 || sy > cv.height + 40) continue;
       if (o.glow) {
         ctx.strokeStyle = `rgba(255,217,138,${0.5 + 0.3 * Math.sin(t / 300)})`; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(sx, sy, 13 + 2 * Math.sin(t / 300), 0, 7); ctx.stroke();
       }
       let labelY = sy - 20;
       if (o.spr) {
-        const img = Sprites.char(o.spr);
+        const dir = (o.face === 'left' || o.face === 'right') ? 'side' : (o.face || 'down');
+        const fr = o.moving ? (Math.floor((o.walkT || 0) / 0.16) % 2) + 1 : 0;
+        const img = Sprites.frame(o.spr, dir, fr);
         const sc = 2 * Sprites.peopleScale(o.spr);
         const w = img.width * sc, h = img.height * sc;
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
         ctx.beginPath(); ctx.ellipse(sx, sy + 12, 11, 4, 0, 0, 7); ctx.fill();
+        ctx.save();
+        if (o.face === 'left') { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.translate(-sx, 0); }
         ctx.drawImage(img, sx - w / 2, sy + 12 - h, w, h);
+        ctx.restore();
         labelY = sy + 12 - h - 6;
       } else {
         ctx.fillStyle = 'rgba(30,30,38,0.85)';
@@ -473,19 +553,33 @@ const Game = (() => {
         ctx.strokeStyle = o.color; ctx.lineWidth = 2; ctx.stroke();
         ctx.fillStyle = o.color; ctx.font = '14px sans-serif'; ctx.fillText(o.glyph, sx, sy + 5);
       }
-      const near = Math.hypot(o.x - player.x, o.y - player.y) < 1.8;
+      const near = Math.hypot(op.x - player.x, op.y - player.y) < 1.8;
       ctx.font = '11px sans-serif';
       ctx.fillStyle = near ? 'rgba(238,230,207,0.95)' : 'rgba(232,226,212,0.55)';
       ctx.fillText(near ? o.name + '（E）' : o.name, sx, labelY);
+      // 任务标记
+      let marker = '';
+      if (o.id === 'stele' && S.stage === 0) marker = '!';
+      if (o.id === 'elder' && (S.stage === 1 || S.stage === 3 || S.letterState === 1)) marker = '!';
+      if (o.id === 'shisheng' && S.echoCount >= 3 && !S.echoesDone) marker = '!';
+      if (marker) {
+        ctx.font = 'bold 17px sans-serif';
+        ctx.fillStyle = '#ffd98a';
+        ctx.fillText(marker, sx, labelY - 13 + Math.sin(t / 280) * 2.5);
+      }
     }
-    // 玩家（像素小人，走路时轻微起伏）
+    // 玩家（像素小人：三方向 + 行走帧）
     const px = (player.x - camX) * TILE, py = (player.y - camY) * TILE;
-    const pimg = Sprites.char('yuyin');
-    const pw = pimg.width * 2.2, ph = pimg.height * 2.2;
-    const bob = player.moving ? Math.abs(Math.sin(t / 110)) * 2.4 : 0;
+    const pdir = (player.face === 'left' || player.face === 'right') ? 'side' : player.face;
+    const pf = player.moving ? (Math.floor(player.walkT / 0.13) % 2) + 1 : 0;
+    const pimg = Sprites.frame('yuyin', pdir, pf);
+    const pw = pimg.width * 2, ph = pimg.height * 2;
     ctx.fillStyle = 'rgba(0,0,0,0.32)';
-    ctx.beginPath(); ctx.ellipse(px, py + 13, 12, 4.4, 0, 0, 7); ctx.fill();
-    ctx.drawImage(pimg, px - pw / 2, py + 13 - ph - bob, pw, ph);
+    ctx.beginPath(); ctx.ellipse(px, py + 14, 12, 4.4, 0, 0, 7); ctx.fill();
+    ctx.save();
+    if (player.face === 'left') { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
+    ctx.drawImage(pimg, px - pw / 2, py + 14 - ph, pw, ph);
+    ctx.restore();
   }
 
   // ---------- 启动 ----------

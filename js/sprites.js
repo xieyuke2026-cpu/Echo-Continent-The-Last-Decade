@@ -1,5 +1,6 @@
-// 回声大陆 · 像素美术层：人物精灵 / 地形贴图 / 建筑物件，全部程序绘制（无外部图片）
-// 人物为 16×18 像素小人，按调色板换装；敌人另有专用图。
+// 回声大陆 · 像素美术层 v2：程序绘制，无外部图片
+// 人物：16×24 三方向（正/背/侧）× 3 帧行走（站立/迈步A/迈步B），按通行标准：触地-过渡交替、脚底基线对齐。
+// 地形 32×32 程序贴图；建筑与道具同为像素贴图。对标：星露谷 / Eastward 的密度与统一色板思路。
 
 const Sprites = (() => {
   function cnv(w, h) { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; }
@@ -12,9 +13,8 @@ const Sprites = (() => {
     return `rgb(${r},${g},${b})`;
   }
 
-  // ---------- 人物 ----------
-  // 基础小人体型图：H 发 / S 肤 / E 眼 / R 袍 / D 袍影 / B 腰带饰 / F 鞋 / W 木
-  const BODY = [
+  // ---------- 人物（16×24，上身 18 行 + 腿 6 行） ----------
+  const TOP_DOWN = [
     '................',
     '.....HHHHHH.....',
     '....HHHHHHHH....',
@@ -22,18 +22,90 @@ const Sprites = (() => {
     '....HSESSESH....',
     '....HSSSSSSH....',
     '.....SSSSSS.....',
-    '......SSSS......',
     '....RRRRRRRR....',
-    '...RRRRRRRRRR...',
+    '..RRRRRRRRRRRR..',
+    '..SRRRRRRRRRRS..',
     '..SRRRBBBBRRRS..',
     '..SRRRRRRRRRRS..',
+    '...RRRRRRRRRR...',
     '....RRRRRRRR....',
-    '....RRR..RRR....',
-    '....RRR..RRR....',
-    '....DDD..DDD....',
-    '...FFFF..FFFF...',
-    '................',
+    '....RRRRRRRR....',
+    '....RRRRRRRR....',
+    '....RRRRRRRR....',
+    '....DDDDDDDD....',
   ];
+  const TOP_UP = TOP_DOWN.slice();
+  TOP_UP[3] = '....HHHHHHHH....';
+  TOP_UP[4] = '....HHHHHHHH....';
+  TOP_UP[5] = '....HHHHHHHH....';
+  TOP_UP[6] = '.....HHHHHH.....';
+  const TOP_SIDE = [
+    '................',
+    '.....HHHHHH.....',
+    '....HHHHHHHH....',
+    '....HHHHSSSS....',
+    '....HHHSESSS....',
+    '....HHHHSSSS....',
+    '.....SSSSS......',
+    '....RRRRRRR.....',
+    '...RRRRRRRRR....',
+    '...RRRSRRRRR....',
+    '...RRRBBBBRR....',
+    '...RRRRRRRRR....',
+    '....RRRRRRR.....',
+    '....RRRRRRR.....',
+    '....RRRRRRR.....',
+    '....RRRRRRR.....',
+    '....RRRRRRR.....',
+    '....DDDDDDD.....',
+  ];
+  const LEGS_FRONT = [
+    [ // 站立
+      '....RRR..RRR....',
+      '....RRR..RRR....',
+      '....RRR..RRR....',
+      '....RRR..RRR....',
+      '....DDD..DDD....',
+      '...FFFF..FFFF...',
+    ],
+    [ // 迈步 A：双腿收拢交错
+      '....RRR.RRR.....',
+      '....RRR.RRR.....',
+      '....RRR.RRR.....',
+      '....RRR.RRR.....',
+      '....DDD.DDD.....',
+      '...FFFF.FFFF....',
+    ],
+    [ // 迈步 B：双腿张开
+      '...RRR....RRR...',
+      '...RRR....RRR...',
+      '...RRR....RRR...',
+      '...RRR....RRR...',
+      '...DDD....DDD...',
+      '..FFFF....FFFF..',
+    ],
+  ];
+  const LEGS_SIDE = [
+    [
+      '....RRR.RR......',
+      '....RRR.RR......',
+      '....RRR.RR......',
+      '....RRR.RR......',
+      '....DDD.DD......',
+      '...FFFF.FFF.....',
+    ],
+    [
+      '...RRR...RRR....',
+      '...RRR....RRR...',
+      '...RRR.....RRR..',
+      '..RRR.......RRR.',
+      '..DDD........DD.',
+      '..FFF........FFF',
+    ],
+    null, // 迈步 B = A 的镜像，运行时生成
+  ];
+  LEGS_SIDE[2] = LEGS_SIDE[1].map(r => r.split('').reverse().join(''));
+
   const SKIN = '#e8b98d', EYE = '#26241f', SHOE = '#3a3428';
   const PEOPLE = {
     yuyin:    { pal: { H: '#2e2a26', R: '#e6ddc4', D: '#b7ac8e', B: '#c9a86a' } },
@@ -42,7 +114,7 @@ const Sprites = (() => {
     xianwai:  { pal: { H: '#6a4a3a', R: '#a85f38', D: '#7d4526', B: '#e8c97a' } },
     modan:    { pal: { H: '#2e3328', R: '#5a6650', D: '#424c3a', B: '#31382b' } },
     elder:    { pal: { H: '#cfd0d4', R: '#6a5a4a', D: '#4c4034', B: '#3e362c' },
-                over: [[7,0,'H'],[8,0,'H'],[14,9,'W'],[14,10,'W'],[14,11,'W'],[14,12,'W'],[14,13,'W'],[14,14,'W'],[14,15,'W'],[14,16,'W']] },
+                over: [[7,0,'H'],[8,0,'H'],[14,9,'W'],[14,10,'W'],[14,11,'W'],[14,12,'W'],[14,13,'W'],[14,14,'W'],[14,15,'W'],[14,16,'W'],[14,17,'W'],[14,18,'W'],[14,19,'W'],[14,20,'W'],[14,21,'W'],[14,22,'W']] },
     villagerA:{ pal: { H: '#26241f', R: '#7a7568', D: '#5a564c', B: '#4c4a41' } },
     villagerB:{ pal: { H: '#4a3626', R: '#7d9a72', D: '#5c7354', B: '#e8c97a' }, scale: 0.86,
                 over: [[4,0,'H'],[5,0,'H'],[10,0,'H'],[11,0,'H']] },
@@ -51,7 +123,7 @@ const Sprites = (() => {
   };
   const ENEMY_ART = {
     canxiang: { pal: { H: '#3c3d49', S: '#b9bcc4', R: '#4a4b58', D: '#33343e', B: '#26272f' },
-                over: [[7,5,'E'],[8,5,'E'],[5,11,'.'],[10,13,'.'],[6,14,'.']] },
+                over: [[7,5,'M'],[8,5,'M'],[5,11,'.'],[10,13,'.'],[6,16,'.']] },
   };
   const WUWO_MAP = [
     '......HHHHHH........',
@@ -72,8 +144,17 @@ const Sprites = (() => {
     '..DDDD.DDDD.DDDD....',
     '..FFFF.FFFF.FFFF....',
     '....................',
+    '....................',
+    '....................',
+    '....................',
+    '....................',
+    '....................',
+    '....................',
   ];
 
+  function fullPal(p) {
+    return { H: p.H, S: p.S || SKIN, E: EYE, R: p.R, D: p.D, B: p.B, F: SHOE, W: '#7a5c38', M: '#101116' };
+  }
   function paintMap(map, pal, over) {
     const w = map[0].length, h = map.length;
     const grid = map.map(r => r.split(''));
@@ -87,29 +168,34 @@ const Sprites = (() => {
     }
     return c;
   }
-  function fullPal(p) {
-    return { H: p.H, S: p.S || SKIN, E: EYE, R: p.R, D: p.D, B: p.B, F: SHOE, W: '#7a5c38', M: '#101116' };
-  }
-  const charCache = {};
-  function char(name) {
-    if (charCache[name]) return charCache[name];
+  const frameCache = {};
+  function frame(name, dir, f) {
+    const key = name + '|' + dir + '|' + f;
+    if (frameCache[key]) return frameCache[key];
     let c;
-    if (name === 'wuwo') c = paintMap(WUWO_MAP, fullPal({ H: '#33343e', S: '#a9abb4', R: '#3a3b47', D: '#2a2b34', B: '#22232b' }));
-    else if (ENEMY_ART[name]) { const d = ENEMY_ART[name]; c = paintMap(BODY, fullPal(d.pal), d.over); }
-    else { const d = PEOPLE[name] || PEOPLE.villagerA; c = paintMap(BODY, fullPal(d.pal), d.over); }
-    charCache[name] = c;
+    if (name === 'wuwo') {
+      c = paintMap(WUWO_MAP, fullPal({ H: '#33343e', S: '#a9abb4', R: '#3a3b47', D: '#2a2b34', B: '#22232b' }));
+    } else {
+      const isEnemy = !!ENEMY_ART[name];
+      const d = isEnemy ? ENEMY_ART[name] : (PEOPLE[name] || PEOPLE.villagerA);
+      const top = dir === 'up' ? TOP_UP : dir === 'side' ? TOP_SIDE : TOP_DOWN;
+      const legs = (dir === 'side' ? LEGS_SIDE : LEGS_FRONT)[f || 0];
+      c = paintMap(top.concat(legs), fullPal(d.pal), d.over);
+    }
+    frameCache[key] = c;
     return c;
   }
+  function char(name) { return frame(name, 'down', 0); }
   function url(name, scale) {
     const src = char(name);
-    const s = scale || 5;
+    const s = scale || 4;
     const c = cnv(src.width * s, src.height * s), g = c.getContext('2d');
     g.imageSmoothingEnabled = false;
     g.drawImage(src, 0, 0, c.width, c.height);
     return c.toDataURL();
   }
 
-  // ---------- 地形贴图（32×32 程序像素） ----------
+  // ---------- 地形贴图（32×32） ----------
   const tileCache = {};
   function tile(kind) {
     if (tileCache[kind]) return tileCache[kind];
@@ -124,8 +210,8 @@ const Sprites = (() => {
     if (kind === 'field') {
       g.fillStyle = 'rgba(0,0,0,0.18)';
       for (let y = 3; y < 32; y += 6) g.fillRect(0, y, 32, 2);
-      g.fillStyle = 'rgba(232,201,122,0.5)';
-      for (let i = 0; i < 26; i++) g.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 1, 2);
+      g.fillStyle = 'rgba(232,201,122,0.55)';
+      for (let i = 0; i < 30; i++) g.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 1, 2);
     } else if (kind === 'road') {
       g.fillStyle = 'rgba(255,255,255,0.06)'; g.fillRect(0, 10, 32, 12);
       g.fillStyle = 'rgba(0,0,0,0.22)';
@@ -148,7 +234,7 @@ const Sprites = (() => {
     return c;
   }
 
-  // ---------- 建筑 / 物件 ----------
+  // ---------- 建筑 / 物件 / 道具 ----------
   const objCache = {};
   function obj(kind, w, h) {
     const key = kind + '_' + w + 'x' + h;
@@ -165,6 +251,7 @@ const Sprites = (() => {
       g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(0, 16, W, 3);
       g.fillStyle = '#2e2a22'; g.fillRect(W / 2 - 6, H - 24, 12, 24);
       g.fillStyle = '#e8c97a'; g.fillRect(10, 26, 7, 7); g.fillRect(W - 17, 26, 7, 7);
+      g.fillStyle = 'rgba(0,0,0,0.25)'; g.fillRect(4, H - 3, W - 8, 3);
     } else if (kind === 'tower') {
       c = cnv(64, 128); const g = c.getContext('2d');
       g.fillStyle = '#57503f'; g.fillRect(10, 22, 44, 106);
@@ -216,6 +303,45 @@ const Sprites = (() => {
       g.beginPath(); g.moveTo(15, 24); g.lineTo(5, 10); g.moveTo(15, 20); g.lineTo(26, 6); g.moveTo(15, 28); g.lineTo(27, 18); g.stroke();
       g.lineWidth = 2;
       g.beginPath(); g.moveTo(26, 6); g.lineTo(29, 1); g.moveTo(5, 10); g.lineTo(2, 4); g.stroke();
+    } else if (kind === 'tuft') {
+      c = cnv(24, 16); const g = c.getContext('2d');
+      g.strokeStyle = '#6a6852'; g.lineWidth = 2;
+      g.beginPath();
+      g.moveTo(4, 16); g.lineTo(3, 6); g.moveTo(9, 16); g.lineTo(10, 3); g.moveTo(14, 16); g.lineTo(13, 7);
+      g.moveTo(19, 16); g.lineTo(21, 5); g.moveTo(7, 16); g.lineTo(5, 10); g.moveTo(16, 16); g.lineTo(18, 9);
+      g.stroke();
+    } else if (kind === 'fence') {
+      c = cnv(32, 22); const g = c.getContext('2d');
+      g.fillStyle = '#5d4c36';
+      g.fillRect(2, 4, 4, 18); g.fillRect(26, 4, 4, 18);
+      g.fillRect(0, 8, 32, 4); g.fillRect(0, 15, 32, 4);
+      g.fillStyle = 'rgba(255,255,255,0.10)'; g.fillRect(0, 8, 32, 2);
+    } else if (kind === 'lamp') {
+      c = cnv(20, 46); const g = c.getContext('2d');
+      g.fillStyle = '#33302a'; g.fillRect(8, 12, 4, 34);
+      g.fillStyle = '#241f16'; g.fillRect(4, 2, 12, 12);
+      g.fillStyle = '#ffd98a'; g.fillRect(7, 5, 6, 6);
+      g.fillStyle = 'rgba(255,217,138,0.16)'; g.beginPath(); g.arc(10, 8, 9, 0, 7); g.fill();
+    } else if (kind === 'crate') {
+      c = cnv(28, 28); const g = c.getContext('2d');
+      g.fillStyle = '#6e5a40'; g.fillRect(2, 2, 24, 24);
+      g.strokeStyle = '#4c3d2a'; g.lineWidth = 3; g.strokeRect(3, 3, 22, 22);
+      g.beginPath(); g.moveTo(4, 4); g.lineTo(24, 24); g.moveTo(24, 4); g.lineTo(4, 24); g.stroke();
+    } else if (kind === 'grave') {
+      c = cnv(24, 32); const g = c.getContext('2d');
+      g.fillStyle = '#5a5b64'; g.fillRect(4, 6, 16, 26);
+      g.beginPath(); g.arc(12, 6, 8, Math.PI, 0); g.fill();
+      g.fillStyle = 'rgba(232,226,212,0.55)';
+      g.fillRect(10, 10, 4, 12); g.fillRect(7, 14, 10, 3);
+      g.fillStyle = 'rgba(0,0,0,0.3)'; g.fillRect(4, 29, 16, 3);
+    } else if (kind === 'pillar') {
+      c = cnv(26, 48); const g = c.getContext('2d');
+      g.fillStyle = '#53525e'; g.fillRect(5, 10, 16, 38);
+      g.fillStyle = 'rgba(0,0,0,0.25)';
+      g.fillRect(9, 10, 2, 38); g.fillRect(15, 10, 2, 38);
+      g.fillStyle = '#43424e'; g.fillRect(2, 4, 22, 7);
+      g.fillStyle = '#43424e'; g.fillRect(2, 44, 22, 4);
+      g.fillStyle = 'rgba(16,17,22,0.7)'; g.fillRect(14, 4, 5, 4); g.fillRect(19, 4, 3, 6);
     } else {
       c = cnv(w * 32, h * 32); const g = c.getContext('2d');
       g.fillStyle = '#4c4a41'; g.fillRect(0, 0, w * 32, h * 32);
@@ -224,5 +350,5 @@ const Sprites = (() => {
     return c;
   }
 
-  return { char, url, tile, obj, peopleScale: name => (PEOPLE[name] && PEOPLE[name].scale) || 1 };
+  return { char, frame, url, tile, obj, peopleScale: name => (PEOPLE[name] && PEOPLE[name].scale) || 1 };
 })();

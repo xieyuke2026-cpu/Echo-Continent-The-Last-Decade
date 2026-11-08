@@ -175,6 +175,24 @@ grayline: [
 ],
 };
 
+// ---------- 专武（仅五星有；独立专武池；重复转精炼，上限 5 阶） ----------
+const WEAPONS = {
+  changming: { id:'changming', name:'长鸣', owner:'yuyin', glyph:'鸣', color:'#c9a86a',
+    desc:'余音之子的专武，一柄以钟声铸成的短槌。技能伤害 +25%（每阶精炼再 +2%）。', eff:{ skillBonus:0.25 } },
+  weichaifeng: { id:'weichaifeng', name:'未拆封', owner:'achi', glyph:'封', color:'#8fa3c7',
+    desc:'阿迟的专武——就是那封信。治疗 +30%，治疗时额外声量 -10。', eff:{ healBonus:0.30, healSound:-10 } },
+  xianwaizhiyin: { id:'xianwaizhiyin', name:'弦外之音', owner:'xianwai', glyph:'外', color:'#b87748',
+    desc:'弦外的专武，一根永远调不准的弦。攻击 20% 概率暴击（1.6 倍）。', eff:{ crit:0.20 } },
+};
+const WPOOL = [
+  { kind:'weapon', id:'changming', w:3 },
+  { kind:'weapon', id:'weichaifeng', w:3 },
+  { kind:'weapon', id:'xianwaizhiyin', w:3 },
+  { kind:'coins', amt:80, w:40, label:'弦币 ×80', glyph:'弦' },
+  { kind:'shard', amt:1, w:26, label:'回声碎片 ×1', glyph:'碎' },
+  { kind:'item', id:'bing', amt:2, w:25, label:'灰麦饼 ×2', glyph:'饼' },
+];
+
 const OBJECTIVES = {
 0: '走到残碑前，按 E 读碑',
 1: '去东边的守碑村，找村长婆婆',

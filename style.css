@@ -38,6 +38,7 @@ canvas { max-width:100%; max-height:100%; image-rendering:pixelated; background:
 
 /* ---------- 对话 ---------- */
 #dialog { position:fixed; left:50%; transform:translateX(-50%); bottom:18px; width:min(860px,94vw); background:rgba(22,22,29,.96); border:1px solid #57543f; border-radius:4px; padding:16px 20px 12px; z-index:20; cursor:pointer; box-shadow:0 8px 40px rgba(0,0,0,.6); }
+#dialog-face { float:left; width:52px; height:78px; object-fit:contain; image-rendering:pixelated; margin:2px 14px 8px 0; border:1px solid #57543f; border-radius:3px; background:#26251d; display:none; }
 #dialog-who { color:#c9a86a; font-size:14px; letter-spacing:.2em; margin-bottom:6px; }
 #dialog-text { font-size:17px; line-height:1.65; min-height:52px; color:#efe9da; white-space:pre-wrap; }
 #dialog-next { text-align:right; color:#6d6f80; font-size:12px; margin-top:4px; animation:blink 1.2s infinite; }
@@ -61,7 +62,14 @@ canvas { max-width:100%; max-height:100%; image-rendering:pixelated; background:
 .fighter { text-align:center; }
 .fighter .avatar { width:92px; height:92px; border-radius:50%; margin:0 auto 8px; display:flex; align-items:center; justify-content:center; font-size:34px; border:2px solid #57543f; background:radial-gradient(circle at 40% 35%, #454331, #26251d); color:#e8dfc2; position:relative; }
 .fighter.enemy .avatar { background:radial-gradient(circle at 40% 35%, #3d3f4d, #1e1f26); border-color:#3c3d49; color:#9d9fb2; border-radius:12px; }
+.fighter { position:relative; }
 .fighter .fname { font-size:14px; color:#ddd3b8; letter-spacing:.06em; }
+.dmg-num { position:absolute; left:50%; top:6px; transform:translateX(-50%); font-size:21px; font-weight:700; color:#ffd98a; text-shadow:0 2px 6px rgba(0,0,0,.8); pointer-events:none; animation:dmgfloat .95s ease-out forwards; z-index:3; }
+.dmg-num.hurt { color:#ff9a7a; }
+.dmg-num.crit { color:#ffcf4d; font-size:27px; }
+@keyframes dmgfloat { 0% { opacity:0; margin-top:8px; } 18% { opacity:1; } 100% { opacity:0; margin-top:-36px; } }
+.hitshake { animation:hitshake .32s; }
+@keyframes hitshake { 0%,100% { transform:translateX(0); } 25% { transform:translateX(-6px); filter:brightness(1.9); } 60% { transform:translateX(5px); filter:brightness(1.4); } }
 .fighter.enemy .fname { color:#9d9fb2; }
 .hpbar { width:110px; height:8px; background:#101116; border:1px solid #3c3d49; border-radius:4px; margin:5px auto 0; overflow:hidden; }
 .hpbar > div { height:100%; background:linear-gradient(90deg,#b8552f,#e08a4c); transition:width .35s; }

@@ -33,22 +33,32 @@ const Battle = (() => {
     el.appendChild(div); el.scrollTop = el.scrollHeight;
   }
 
+  function fxHtml(side, i) {
+    if (!B.fx || B.fx.side !== side || B.fx.idx !== i) return '';
+    return `<span class="dmg-num ${B.fx.crit ? 'crit' : ''} ${B.fx.hurt ? 'hurt' : ''}">${B.fx.dmg}</span>`;
+  }
+  function fxClass(side, i) {
+    return B.fx && B.fx.side === side && B.fx.idx === i ? ' hitshake' : '';
+  }
   function render() {
     $('battle-enemies').innerHTML = B.enemies.map((e, i) => `
-      <div class="fighter enemy ${e.dead ? 'dead' : ''}">
-        <div class="avatar"><img src="${Sprites.url(e.id, 5)}" alt="${e.name}"></div>
+      <div class="fighter enemy ${e.dead ? 'dead' : ''}${fxClass('e', i)}">
+        ${fxHtml('e', i)}
+        <div class="avatar"><img src="${Sprites.url(e.id, 4)}" alt="${e.name}"></div>
         <div class="fname">${e.name}</div>
         <div class="hpbar"><div style="width:${Math.max(0, e.hp / e.maxhp * 100)}%"></div></div>
         <div class="fhp">${Math.max(0, Math.ceil(e.hp))} / ${e.maxhp}</div>
       </div>`).join('') +
       `<div id="sound-meter">声量 ${'▮'.repeat(Math.round(B.sound / 10))}${'▯'.repeat(10 - Math.round(B.sound / 10))} ${B.sound}</div>`;
     $('battle-party').innerHTML = B.allies.map((a, i) => `
-      <div class="fighter ally ${a.dead ? 'dead' : ''}">
-        <div class="avatar" style="border-color:${a.color}"><img src="${Sprites.url(a.cid, 5)}" alt="${a.name}"></div>
-        <div class="fname">${a.name}${i === B.actor && !B.over ? ' ◀' : ''}</div>
+      <div class="fighter ally ${a.dead ? 'dead' : ''}${fxClass('a', i)}">
+        ${fxHtml('a', i)}
+        <div class="avatar" style="border-color:${a.color}"><img src="${Sprites.url(a.cid, 4)}" alt="${a.name}"></div>
+        <div class="fname">${a.name}${a.wName ? ' · ' + a.wName : ''}${i === B.actor && !B.over ? ' ◀' : ''}</div>
         <div class="hpbar"><div style="width:${Math.max(0, a.cur / a.hp * 100)}%"></div></div>
         <div class="fhp">${Math.max(0, Math.ceil(a.cur))} / ${a.hp}${a.guard ? ' · 低鸣中' : ''}</div>
       </div>`).join('');
+    B.fx = null;
   }
 
   function alive(list) { return list.filter(x => !x.dead); }
@@ -98,14 +108,15 @@ const Battle = (() => {
         a.guard = true; addSound(-10); afterAlly(); return;
       }
       if (s.heal) {
-        B.allies.forEach(x => { if (!x.dead) x.cur = Math.min(x.hp, x.cur + x.hp * s.heal); });
-        log(`${a.name} 用出「${s.name}」：全队回复生命。那封信的重量，稳住了所有人的声音。`, 'good');
-        addSound(s.sound); afterAlly();
+        const hm = a.wHeal || 1;
+        B.allies.forEach(x => { if (!x.dead) x.cur = Math.min(x.hp, x.cur + x.hp * s.heal * hm); });
+        log(`${a.name} 用出「${s.name}」：全队回复生命。${a.wName ? '（专武「' + a.wName + '」增幅）' : '那封信的重量，稳住了所有人的声音。'}`, 'good');
+        addSound(s.sound + (a.wHealSound || 0)); afterAlly();
       } else if (s.aoe) {
-        alive(B.enemies).forEach(t => hit(a, t, s.mult, s.name, true));
+        alive(B.enemies).forEach(t => hit(a, t, s.mult * (a.wSkill || 1), s.name, true));
         addSound(s.sound); afterAlly();
       } else {
-        pickTarget(t => { hit(a, t, s.mult, s.name); addSound(s.sound); afterAlly(); });
+        pickTarget(t => { hit(a, t, s.mult * (a.wSkill || 1), s.name); addSound(s.sound); afterAlly(); });
       }
     } else if (act === 'guard') {
       a.guard = true; addSound(-25);
@@ -149,10 +160,14 @@ const Battle = (() => {
   }
 
   function hit(a, t, mult, label, quiet) {
-    const dmg = Math.max(1, Math.round(a.atk * mult * rnd(0.85, 1.15)));
+    let dmg = a.atk * mult * rnd(0.85, 1.15);
+    let crit = false;
+    if (a.wCrit && Math.random() < a.wCrit) { dmg *= 1.6; crit = true; }
+    dmg = Math.max(1, Math.round(dmg));
     t.hp -= dmg;
-    if (!quiet) log(`${a.name} 「${label}」打中 ${t.name}，造成 ${dmg} 点伤害。`);
-    else log(`→ ${t.name} 受到 ${dmg} 点伤害。`);
+    B.fx = { side: 'e', idx: B.enemies.indexOf(t), dmg, crit };
+    if (!quiet) log(`${a.name} 「${label}」打中 ${t.name}，造成 ${dmg} 点伤害。${crit ? '（弦外之音 · 暴击！）' : ''}`);
+    else log(`→ ${t.name} 受到 ${dmg} 点伤害。${crit ? '（暴击！）' : ''}`);
     if (t.hp <= 0 && !t.dead) { t.dead = true; log(`${t.name} 的形状散了，声音落回灰里。`, 'good'); }
   }
 
@@ -184,6 +199,7 @@ const Battle = (() => {
       let dmg = Math.max(1, Math.round(e.atk * mult * rnd(0.85, 1.15)));
       if (t.guard) dmg = Math.max(1, Math.round(dmg * 0.4));
       t.cur -= dmg;
+      B.fx = { side: 'a', idx: B.allies.indexOf(t), dmg, hurt: true };
       log(`${e.name} ${label} ${t.name}，造成 ${dmg} 点伤害。${t.guard ? '（低鸣挡下了大半）' : ''}`, 'bad');
       if (t.cur <= 0 && !t.dead) { t.dead = true; log(`${t.name} 的声音断了……`, 'bad'); }
       render();
