@@ -197,12 +197,15 @@ const Sprites = (() => {
 
   // ---------- 地形贴图（32×32） ----------
   const tileCache = {};
-  function tile(kind) {
-    if (tileCache[kind]) return tileCache[kind];
+  function tile(kind, tx, ty) {
+    // 双变体：按坐标哈希在两种纹理间交替，减少大面积重复感
+    let key = kind;
+    if (tx !== undefined && ['ash', 'dirt', 'slope', 'field', 'road'].includes(kind) && hash(tx * 3 + 11, ty * 5 + 7) > 0.52) key = kind + 'b';
+    if (tileCache[key]) return tileCache[key];
     const bases = { ash: '#403e34', dirt: '#54493a', field: '#5c573c', ruin: '#3a3942', road: '#5a5040', slope: '#4c4a3e', gray: '#2a2a28', void: '#101116' };
     const c = cnv(32, 32), g = c.getContext('2d');
     const base = bases[kind] || '#403e34';
-    const rand = rng(kind.length * 7919 + 131);
+    const rand = rng(kind.length * 7919 + 131 + (key.endsWith('b') ? 4242 : 0));
     for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
       g.fillStyle = shade(base, 0.92 + rand() * 0.16);
       g.fillRect(x, y, 1, 1);
@@ -230,7 +233,7 @@ const Sprites = (() => {
       g.fillStyle = 'rgba(255,255,255,0.05)';
       for (let i = 0; i < 7; i++) g.fillRect(Math.floor(rand() * 32), Math.floor(rand() * 32), 1, 1);
     }
-    tileCache[kind] = c;
+    tileCache[key] = c;
     return c;
   }
 

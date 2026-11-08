@@ -1,15 +1,16 @@
-// 回声大陆 v0.1 · 共鸣（抽卡）+ 队伍编成
-// 规则（设定集已定）：单机、无限定池；乐魂含本体共 7 份封顶；满乐魂溢出转回声碎片；地区角色须完成当地主线且身在当地（v0.1 仅普通池）。
-
+// 回声大陆 v0.4 · 共鸣（角色池/专武池）与队伍界面（全屏）
 const Gacha = (() => {
   const $ = id => document.getElementById(id);
   const GUARANTEE_5 = 60; // 暂定保底：60 抽必出五星 / 专武（正式数值待定）
   let curTab = 'char';
+  let curChar = 'yuyin';
 
+  /* ================= 共鸣 ================= */
   function open() {
-    Game.showPanel('共 鸣', renderPool());
-    bindPool();
+    renderGacha(null);
+    $('gacha-screen').classList.remove('hidden');
   }
+  function close() { $('gacha-screen').classList.add('hidden'); }
 
   function availablePool() {
     return POOL.filter(p => !p.needFlag || Game.state.flags[p.needFlag]);
@@ -20,8 +21,8 @@ const Gacha = (() => {
     const pool = weaponTab ? WPOOL : availablePool();
     const st = Game.state;
     st.pullsSince5 = (st.pullsSince5 || 0) + 1;
-    let entry;
     const isTop = p => weaponTab ? p.kind === 'weapon' : (p.kind === 'char' && CHARACTERS[p.id].star === 5);
+    let entry;
     if (st.pullsSince5 >= GUARANTEE_5) {
       const fives = pool.filter(isTop);
       entry = fives[Math.floor(Math.random() * fives.length)];
@@ -40,17 +41,20 @@ const Gacha = (() => {
     const st = Game.state;
     if (entry.kind === 'char') {
       const c = CHARACTERS[entry.id];
-      const owned = st.chars[entry.id] || 0;
-      if (owned === 0) {
+      const cur = st.chars[entry.id] || 0;
+      if (entry.id === 'yuyin') {
+        if (cur < 7) { st.chars.yuyin = cur + 1; return { star: 5, img: Sprites.url('yuyin', 3), name: '余音之子（历代回声）', tag: `乐魂 ${cur} → ${cur + 1} · 他自己的回声，也算他的乐魂` }; }
+        st.shards += 12;
+        return { star: 5, img: Sprites.url('yuyin', 3), name: '余音之子（回声）', tag: '乐魂已满 · 转回声碎片 ×12' };
+      }
+      if (cur === 0) {
         st.chars[entry.id] = 1;
-        return { star: c.star, glyph: c.glyph, img: Sprites.url(entry.id, 3), name: c.name, tag: c.star + '星 · 新同伴！' };
+        if (entry.id !== 'achi' && !st.party.includes(entry.id) && st.party.length < 2) st.party.push(entry.id);
+        return { star: c.star, img: Sprites.url(entry.id, 3), name: c.name, tag: c.star + '星 · 新的回声加入' };
       }
-      if (owned < 7) {
-        st.chars[entry.id] = owned + 1;
-        return { star: c.star, glyph: c.glyph, img: Sprites.url(entry.id, 3), name: c.name, tag: c.star + '星 · 乐魂 ' + owned + '→' + (owned + 1) + '（共7份封顶）' };
-      }
-      st.shards += 5;
-      return { star: c.star, glyph: c.glyph, img: Sprites.url(entry.id, 3), name: c.name, tag: '乐魂已满 · 转回声碎片 ×5' };
+      if (cur < 7) { st.chars[entry.id] = cur + 1; return { star: c.star, img: Sprites.url(entry.id, 3), name: c.name, tag: `乐魂 ${cur} → ${cur + 1}（每份 +6%）` }; }
+      st.shards += 12;
+      return { star: c.star, img: Sprites.url(entry.id, 3), name: c.name, tag: '乐魂已满 · 转回声碎片 ×12' };
     }
     if (entry.kind === 'weapon') {
       const w = WEAPONS[entry.id];
@@ -64,110 +68,120 @@ const Gacha = (() => {
     }
     if (entry.kind === 'coins') { st.coins += entry.amt; return { star: 0, glyph: entry.glyph, name: entry.label, tag: '物资' }; }
     if (entry.kind === 'shard') { st.shards += entry.amt; return { star: 0, glyph: entry.glyph, name: entry.label, tag: '物资' }; }
-    st.items[entry.id] = (st.items[entry.id] || 0) + entry.amt;
-    return { star: 0, glyph: entry.glyph, name: entry.label, tag: '物资' };
+    if (entry.kind === 'item') { st.items[entry.id] = (st.items[entry.id] || 0) + entry.amt; return { star: 0, glyph: entry.glyph, name: entry.label, tag: '物资' }; }
+    return { star: 0, glyph: '?', name: '?', tag: '' };
   }
 
   function pull(n) {
     const st = Game.state;
-    if (st.crystals < n) { Game.toast('共鸣结晶不够（需要 ' + n + '，现有 ' + st.crystals + '）。探索、支线和主线都会产出。'); return; }
+    if (st.crystals < n) { Game.toast(`共鸣结晶不够（有 ${st.crystals}，需要 ${n}）。始鸣晶可在主角面板兑换。`); return; }
     st.crystals -= n;
     const results = [];
     for (let i = 0; i < n; i++) results.push(rollOne());
-    Game.updateHUD(); Game.save();
-    $('panel-body').innerHTML = renderPool(results);
-    bindPool();
+    Game.save(); Game.refreshHud();
+    renderGacha(results);
+    Game.toast(n === 10 ? '十次共鸣，回声们一起应声。' : '一次共鸣，有回声应了你。');
   }
 
-  function tabsHtml() {
-    return `<div class="gacha-btns">
-      <button class="act-btn" id="tab-char" ${curTab === 'char' ? 'style="border-color:#c9a86a;color:#ffd98a"' : ''}>角色池</button>
-      <button class="act-btn" id="tab-weapon" ${curTab === 'weapon' ? 'style="border-color:#c9a86a;color:#ffd98a"' : ''}>专武池（独立）</button>
-    </div>`;
-  }
-  function resultsHtml(results) {
-    if (!results) return '';
-    return '<h4>本次共鸣</h4><div class="pull-results">' + results.map(r =>
-      `<div class="pull-card r${r.star}"><div class="pc-ava">${r.img ? `<img src="${r.img}" alt="">` : r.glyph}</div><div class="pc-name">${r.name}</div><div class="pc-tag">${r.tag}</div></div>`).join('') + '</div>';
-  }
-  function pullBtnsHtml(st) {
-    return `<div class="pool-info">共鸣结晶：<b style="color:#eee6cf">${st.crystals}</b> · 距保底还有 ${GUARANTEE_5 - (st.pullsSince5 || 0)} 抽</div>
-      <div class="gacha-btns">
-        <button class="act-btn" id="pull1">共鸣 ×1（1 结晶）</button>
-        <button class="act-btn" id="pull10">共鸣 ×10（10 结晶）</button>
-      </div>`;
+  function cardHtml(r) {
+    return `<div class="pull-card r${r.star}"><div class="pc-ava">${r.img ? `<img src="${r.img}" alt="">` : r.glyph}</div><div class="stars">${r.star ? '★'.repeat(r.star) : ''}</div><div class="pc-name">${r.name}</div><div class="pc-tag">${r.tag}</div></div>`;
   }
 
-  function renderPool(results) {
+  function renderGacha(results) {
     const st = Game.state;
-    if (curTab === 'weapon') {
-      const wlist = Object.values(WEAPONS).map(w => {
+    $('gacha-crystals').textContent = st.crystals;
+    $('tab-char').classList.toggle('on', curTab === 'char');
+    $('tab-weapon').classList.toggle('on', curTab === 'weapon');
+    $('gacha-pity').innerHTML = `距保底还有 <b>${GUARANTEE_5 - (st.pullsSince5 || 0)}</b> 抽 · 结晶 <b>${st.crystals}</b>`;
+    if (curTab === 'char') {
+      $('gacha-hero-art').innerHTML = ['xianwai', 'yuyin', 'achi'].map(id => `<img src="${Sprites.url(id, 8)}" alt="">`).join('');
+      $('gacha-pool-name').textContent = '普通池 · 常 驻';
+      $('gacha-pool-desc').innerHTML = '五星 6% / 四星 24% / 物资 70% · 无限定，全部常驻。<br>共鸣召回的是他们的「声之回声」——本人还在过自己的日子，回声与你同行。重复回声叠成乐魂（含本体共 7 份），满了转回声碎片。';
+      $('gacha-list').innerHTML = '<div class="sec-label">池 中 回 声</div><div class="pull-results">' + Object.values(CHARACTERS).map(c => {
+        const gated = c.id === 'achi' && !st.flags.achiUnlocked;
+        return cardHtml({ star: c.star, img: Sprites.url(c.id, 3), name: c.name, tag: gated ? '序章之后解锁' : (st.chars[c.id] ? '乐魂 ' + st.chars[c.id] + '/7' : '尚未共鸣') });
+      }).join('') + '</div>';
+    } else {
+      $('gacha-hero-art').innerHTML = Object.values(WEAPONS).map(w => `<div class="wicon">${w.glyph}</div>`).join('');
+      $('gacha-pool-name').textContent = '专武池 · 独 立';
+      $('gacha-pool-desc').innerHTML = '专武 9% / 物资 91%。只有五星角色有专武。<br>抽到即自动装备给本人；重复转为精炼（上限 5 阶，每阶放大效果）；满阶溢出转回声碎片 ×8。';
+      $('gacha-list').innerHTML = '<div class="sec-label">池 中 专 武</div><div class="pull-results">' + Object.values(WEAPONS).map(w => {
         const lvl = (st.weapons || {})[w.id] || 0;
-        return `<div class="pull-card r5"><div class="pc-ava"><img src="${Sprites.url(w.owner, 3)}" alt=""></div><div class="pc-name">${w.name}</div><div class="pc-tag">${CHARACTERS[w.owner].name} 专武${lvl ? ' · 精炼 ' + lvl : ''}</div></div>`;
-      }).join('');
-      return tabsHtml() + `<div class="pool-info">专武池（独立常驻池）— 专武 9% / 物资 91%。只有五星角色有专武；抽到即自动装备给本人，重复转为精炼（上限 5 阶，每阶放大效果），满阶溢出转回声碎片 ×8。</div>`
-        + pullBtnsHtml(st) + resultsHtml(results)
-        + '<h4>池中专武</h4><div class="pull-results">' + wlist + '</div>';
+        return cardHtml({ star: 5, img: Sprites.url(w.owner, 3), name: w.name, tag: CHARACTERS[w.owner].name + ' 专武' + (lvl ? ' · 精炼 ' + lvl : ' · 未获得') });
+      }).join('') + '</div>';
     }
-    const list = Object.values(CHARACTERS).map(c => {
-      const gated = c.id === 'achi' && !st.flags.achiUnlocked;
-      return `<div class="pull-card r${c.star}"><div class="pc-ava"><img src="${Sprites.url(c.id, 3)}" alt="${c.name}"></div><div class="pc-name">${c.name}</div><div class="pc-tag">${c.star}星${gated ? ' · 未解锁（序章后）' : ''}</div></div>`;
-    }).join('');
-    let html = tabsHtml() + `<div class="pool-info">普通池（常驻 · 无限定）— 五星 6% / 四星 24% / 物资 70% · ${GUARANTEE_5} 抽保底五星（暂定）<br>
-      共鸣召回的是他们的「声之回声」：本人还在过自己的日子，回声与你同行。重复回声叠成乐魂（含本体共 7 份），满了转回声碎片。</div>`
-      + pullBtnsHtml(st)
-      + resultsHtml(results);
-    html += '<h4>池中回声</h4><div class="pull-results">' + list + '</div>';
-    return html;
+    $('gacha-results').innerHTML = results ? '<div class="sec-label">本 次 共 鸣</div><div class="pull-results">' + results.map(cardHtml).join('') + '</div>' : '';
+    $('pull1').onclick = () => pull(1);
+    $('pull10').onclick = () => pull(10);
+    $('tab-char').onclick = () => { curTab = 'char'; renderGacha(null); };
+    $('tab-weapon').onclick = () => { curTab = 'weapon'; renderGacha(null); };
+    $('gacha-close').onclick = close;
   }
 
-  function bindPool() {
-    const p1 = $('pull1'), p10 = $('pull10');
-    if (p1) p1.onclick = () => pull(1);
-    if (p10) p10.onclick = () => pull(10);
-    const tc = $('tab-char'), tw = $('tab-weapon');
-    if (tc) tc.onclick = () => { curTab = 'char'; $('panel-body').innerHTML = renderPool(); bindPool(); };
-    if (tw) tw.onclick = () => { curTab = 'weapon'; $('panel-body').innerHTML = renderPool(); bindPool(); };
-  }
-
-  // ---------- 队伍 ----------
+  /* ================= 队伍 ================= */
   function openParty() {
+    if (!Game.state.chars[curChar] && curChar !== 'yuyin') curChar = 'yuyin';
+    renderParty();
+    $('party-screen').classList.remove('hidden');
+  }
+  function closeParty() { $('party-screen').classList.add('hidden'); }
+
+  function pips(n, total) {
+    return '<span class="pips">' + Array.from({ length: total }, (_, i) => `<span class="pip ${i < n ? 'on' : ''}"></span>`).join('') + '</span>';
+  }
+
+  function renderParty() {
     const st = Game.state;
-    const weaponLine = cid => {
-      const w = Object.values(WEAPONS).find(x => x.owner === cid);
-      if (!w) return '';
-      const lvl = (st.weapons || {})[w.id] || 0;
-      return `<div class="rr-sub">${lvl ? '专武：<span style="color:#ffd98a">' + w.name + '（精炼 ' + lvl + '）</span> — ' + w.desc : '专武：' + w.name + '（未获得，去共鸣的专武池）'}</div>`;
-    };
-    const selfRow = `<div class="roster-row">
-        <div><span class="rr-name" style="color:${CHARACTERS.yuyin.color}">律 余音之子</span> <span class="rr-sub">主角 · 历代回声（乐魂）${st.chars.yuyin || 0}/7</span>
-        <div class="rr-sub">他在池中抽到的每一份自己，都是他的一份乐魂，直接让他自己变强（每份 +6%）。</div>${weaponLine('yuyin')}</div>
-        <span class="rr-sub">始终在队</span>
-      </div>`;
-    const rows = selfRow + Object.keys(st.chars).filter(id => id !== 'yuyin').map(id => {
+    const ids = ['yuyin', ...Object.keys(CHARACTERS).filter(id => id !== 'yuyin' && st.chars[id])];
+    $('party-list').innerHTML = ids.map(id => {
       const c = CHARACTERS[id];
-      const inParty = st.party.includes(id);
-      const soul = st.chars[id];
-      return `<div class="roster-row">
-        <div><span class="rr-name" style="color:${c.color}">${c.glyph} ${c.name}</span> <span class="rr-sub">${c.star}星 · 乐魂 ${soul}/7</span>
-        <div class="rr-sub">${c.desc}</div>
-        <div class="rr-sub">技能：${c.skill.name} — ${c.skill.desc}</div>${weaponLine(id)}</div>
-        <button data-char="${id}">${inParty ? '撤下' : '同行'}</button>
+      const inParty = id === 'yuyin' || st.party.includes(id);
+      return `<div class="party-row ${id === curChar ? 'sel' : ''}" data-cid="${id}">
+        <div class="pr-ava"><img src="${Sprites.url(id, 3)}" alt=""></div>
+        <div><div class="pr-name">${c.name}</div><div class="pr-sub">${'★'.repeat(c.star)} · 乐魂 ${st.chars[id] || (id === 'yuyin' ? 0 : 0)}/7</div></div>
+        ${inParty ? '<span class="pr-in">同行中</span>' : ''}
       </div>`;
     }).join('');
-    Game.showPanel('队 伍', `
-      <div class="pool-info">余音之子始终在队。另可带 2 名回声同行（当前 ${st.party.length}/2）。乐魂越高，同伴越强（每份乐魂 +6% 攻击与生命）。</div>
-      <h4>已召回的回声</h4>${rows || '<div class="pool-info">还没有同伴。去碑前共鸣一次吧。</div>'}`);
-    document.querySelectorAll('#panel-body [data-char]').forEach(btn => btn.onclick = () => {
-      const id = btn.dataset.char;
-      const st2 = Game.state;
-      if (st2.party.includes(id)) st2.party = st2.party.filter(x => x !== id);
-      else {
-        if (st2.party.length >= 2) { Game.toast('同行名额满了（2 名）。先撤下一位。'); return; }
-        st2.party.push(id);
-      }
-      Game.save(); openParty();
-    });
+    document.querySelectorAll('.party-row').forEach(el => el.onclick = () => { curChar = el.dataset.cid; renderParty(); });
+    $('party-close').onclick = closeParty;
+
+    const c = CHARACTERS[curChar];
+    const ps = Game.previewStats(curChar);
+    const w = Object.values(WEAPONS).find(x => x.owner === curChar);
+    const wlvl = w ? (st.weapons || {})[w.id] || 0 : 0;
+    const inParty = curChar === 'yuyin' || st.party.includes(curChar);
+    $('party-detail').innerHTML = `
+      <div class="d-top">
+        <div class="d-ava"><img src="${Sprites.url(curChar, 8)}" alt=""></div>
+        <div style="flex:1;min-width:230px">
+          <div class="d-name">${c.name}</div>
+          <div class="d-title">${c.title}</div>
+          <div class="d-stars">${'★'.repeat(c.star)}</div>
+          <div class="d-desc">${c.desc}</div>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-box"><div class="sb-k">生命（当前编成）</div><div class="sb-v">${ps.hp}</div></div>
+        <div class="stat-box"><div class="sb-k">攻击</div><div class="sb-v">${ps.atk}</div></div>
+        <div class="stat-box"><div class="sb-k">乐魂</div><div class="sb-v" style="font-size:15px">${st.chars[curChar] || 0} / 7 ${pips(st.chars[curChar] || 0, 7)}</div></div>
+      </div>
+      <div class="d-sec"><h5>技 能</h5><p><b>${c.skill.name}</b> — ${c.skill.desc}</p></div>
+      ${w ? `<div class="d-sec"><h5>专 武</h5><p><b style="color:var(--gold)">${w.name}</b>${wlvl ? ' · 精炼 ' + wlvl + ' / 5 ' + pips(wlvl, 5) : ' · 未获得（共鸣 → 专武池）'}<br>${w.desc}</p></div>` : '<div class="d-sec"><h5>专 武</h5><p>四星角色没有专武。</p></div>'}
+      ${curChar === 'yuyin'
+        ? '<button class="deploy-btn off" disabled>主角 · 始终在队</button>'
+        : `<button class="deploy-btn ${inParty ? 'off' : ''}" id="deploy-btn">${inParty ? '移出队伍' : '编入队伍（同行 ' + st.party.length + '/2）'}</button>`}`;
+    const db = $('deploy-btn');
+    if (db) db.onclick = () => { toggleParty(curChar); renderParty(); };
+  }
+
+  function toggleParty(id) {
+    const st = Game.state;
+    if (st.party.includes(id)) { st.party = st.party.filter(x => x !== id); Game.toast(CHARACTERS[id].name + ' 留在原地——她的回声散回风里。'); }
+    else {
+      if (st.party.length >= 2) { Game.toast('同行已满（主角 + 2 人）。先移出一位。'); return; }
+      st.party.push(id); Game.toast(CHARACTERS[id].name + ' 的回声与你同行。');
+    }
+    Game.save();
   }
 
   return { open, openParty };

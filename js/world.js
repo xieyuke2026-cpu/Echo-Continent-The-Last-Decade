@@ -3,7 +3,7 @@
 
 const Game = (() => {
   const SAVE_KEY = 'echo-continent-save-v1';
-  const TW = 72, TH = 48, TILE = 32;
+  const TW = 72, TH = 48, TILE = 64; // v0.4：视野收紧到 15×9.4 格，换人物与场景的细节密度
   const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
   const $ = id => document.getElementById(id);
 
@@ -44,6 +44,12 @@ const Game = (() => {
     const hp = Math.round((100 + (S.level - 1) * 8 + notes * 15) * (1 + 0.06 * (S.chars.yuyin || 0)));
     const atk = Math.round((12 + (S.level - 1) * 2 + notes * 3) * (1 + 0.06 * (S.chars.yuyin || 0)));
     return { hp, atk };
+  }
+  function previewStats(cid) {
+    if (cid === 'yuyin') { const ps = playerStats(); return { hp: ps.hp, atk: ps.atk }; }
+    const c = CHARACTERS[cid];
+    const scale = (1 + 0.05 * (S.level - 1)) * soulBonus(cid);
+    return { hp: Math.round(c.hp * scale), atk: Math.round(c.atk * scale) };
   }
   function weaponMods(cid) {
     const w = Object.values(WEAPONS).find(x => x.owner === cid);
@@ -482,14 +488,14 @@ const Game = (() => {
     for (let x = Math.floor(camX); x < Math.min(TW, camX + VW + 1); x++)
       for (let y = Math.floor(camY); y < Math.min(TH, camY + VH + 1); y++) {
         const sx = (x - camX) * TILE, sy = (y - camY) * TILE;
-        ctx.drawImage(Sprites.tile(tileAt(x, y)), sx, sy);
+        ctx.drawImage(Sprites.tile(tileAt(x, y), x, y), sx, sy, TILE, TILE);
       }
     // 灰线压迫感
     const grad = ctx.createLinearGradient(0, -camY * TILE, 0, (3 - camY) * TILE);
     grad.addColorStop(0, 'rgba(10,10,12,0.55)'); grad.addColorStop(1, 'rgba(10,10,12,0)');
     ctx.fillStyle = grad; ctx.fillRect(0, 0, cv.width, Math.max(0, (3 - camY) * TILE));
     // 区域名
-    ctx.font = '15px sans-serif'; ctx.textAlign = 'center';
+    ctx.font = '23px "Songti SC", serif'; ctx.textAlign = 'center';
     for (const z of ZONE_LABELS) {
       const sx = (z.x - camX) * TILE, sy = (z.y - camY) * TILE;
       if (sx > -80 && sy > -20 && sx < cv.width + 80 && sy < cv.height + 20) {
@@ -502,25 +508,24 @@ const Game = (() => {
       const sx = (s.x - camX) * TILE, sy = (s.y - camY) * TILE;
       if (sx < -160 || sy < -160 || sx > cv.width + 80 || sy > cv.height + 80) continue;
       const img = Sprites.obj(s.kind, s.w, s.h);
-      const dx = sx + (s.w * TILE - img.width) / 2;
-      const dy = sy + s.h * TILE - img.height;
-      ctx.drawImage(img, dx, dy);
+      const dw = s.w * TILE, dh = img.height * (TILE / 32);
+      ctx.drawImage(img, sx, sy + s.h * TILE - dh, dw, dh);
     }
     // 地面装饰（灰草丛）
     for (const d of DECOR) {
       const sx = (d.x - camX) * TILE, sy = (d.y - camY) * TILE;
       if (sx < -30 || sy < -30 || sx > cv.width + 30 || sy > cv.height + 30) continue;
       const img = Sprites.obj('tuft', 1, 1);
-      ctx.drawImage(img, sx - img.width / 2, sy - img.height + 4);
+      ctx.drawImage(img, sx - 32, sy - 30, 64, 36);
     }
     // 灰尘粒子
     for (const m of motes) {
       ctx.fillStyle = `rgba(232,226,212,${m.o})`;
-      ctx.fillRect(m.x, m.y, 2, 2);
+      ctx.fillRect(m.x, m.y, 3, 3);
     }
     // 涟漪（脚步声）
     for (const r of ripples) {
-      ctx.strokeStyle = `rgba(201,214,238,${r.a})`; ctx.lineWidth = 1.5;
+      ctx.strokeStyle = `rgba(201,214,238,${r.a})`; ctx.lineWidth = 2.2;
       ctx.beginPath(); ctx.arc((r.x - camX) * TILE, (r.y - camY) * TILE, r.r * TILE, 0, 7); ctx.stroke();
     }
     // 交互对象
@@ -531,30 +536,30 @@ const Game = (() => {
       if (sx < -40 || sy < -60 || sx > cv.width + 40 || sy > cv.height + 40) continue;
       if (o.glow) {
         ctx.strokeStyle = `rgba(255,217,138,${0.5 + 0.3 * Math.sin(t / 300)})`; ctx.lineWidth = 2;
-        ctx.beginPath(); ctx.arc(sx, sy, 13 + 2 * Math.sin(t / 300), 0, 7); ctx.stroke();
+        ctx.beginPath(); ctx.arc(sx, sy, 26 + 4 * Math.sin(t / 300), 0, 7); ctx.stroke();
       }
-      let labelY = sy - 20;
+      let labelY = sy - 40;
       if (o.spr) {
         const dir = (o.face === 'left' || o.face === 'right') ? 'side' : (o.face || 'down');
         const fr = o.moving ? (Math.floor((o.walkT || 0) / 0.16) % 2) + 1 : 0;
         const img = Sprites.frame(o.spr, dir, fr);
-        const sc = 2 * Sprites.peopleScale(o.spr);
+        const sc = 3 * Sprites.peopleScale(o.spr);
         const w = img.width * sc, h = img.height * sc;
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        ctx.beginPath(); ctx.ellipse(sx, sy + 12, 11, 4, 0, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(sx, sy + 20, 17, 6.5, 0, 0, 7); ctx.fill();
         ctx.save();
         if (o.face === 'left') { ctx.translate(sx, 0); ctx.scale(-1, 1); ctx.translate(-sx, 0); }
-        ctx.drawImage(img, sx - w / 2, sy + 12 - h, w, h);
+        ctx.drawImage(img, sx - w / 2, sy + 20 - h, w, h);
         ctx.restore();
-        labelY = sy + 12 - h - 6;
+        labelY = sy + 20 - h - 8;
       } else {
         ctx.fillStyle = 'rgba(30,30,38,0.85)';
-        ctx.beginPath(); ctx.arc(sx, sy, 13, 0, 7); ctx.fill();
-        ctx.strokeStyle = o.color; ctx.lineWidth = 2; ctx.stroke();
-        ctx.fillStyle = o.color; ctx.font = '14px sans-serif'; ctx.fillText(o.glyph, sx, sy + 5);
+        ctx.beginPath(); ctx.arc(sx, sy, 24, 0, 7); ctx.fill();
+        ctx.strokeStyle = o.color; ctx.lineWidth = 2.5; ctx.stroke();
+        ctx.fillStyle = o.color; ctx.font = '24px sans-serif'; ctx.fillText(o.glyph, sx, sy + 9);
       }
       const near = Math.hypot(op.x - player.x, op.y - player.y) < 1.8;
-      ctx.font = '11px sans-serif';
+      ctx.font = '15px sans-serif';
       ctx.fillStyle = near ? 'rgba(238,230,207,0.95)' : 'rgba(232,226,212,0.55)';
       ctx.fillText(near ? o.name + '（E）' : o.name, sx, labelY);
       // 任务标记
@@ -563,9 +568,9 @@ const Game = (() => {
       if (o.id === 'elder' && (S.stage === 1 || S.stage === 3 || S.letterState === 1)) marker = '!';
       if (o.id === 'shisheng' && S.echoCount >= 3 && !S.echoesDone) marker = '!';
       if (marker) {
-        ctx.font = 'bold 17px sans-serif';
+        ctx.font = 'bold 26px sans-serif';
         ctx.fillStyle = '#ffd98a';
-        ctx.fillText(marker, sx, labelY - 13 + Math.sin(t / 280) * 2.5);
+        ctx.fillText(marker, sx, labelY - 20 + Math.sin(t / 280) * 4);
       }
     }
     // 玩家（像素小人：三方向 + 行走帧）
@@ -573,12 +578,12 @@ const Game = (() => {
     const pdir = (player.face === 'left' || player.face === 'right') ? 'side' : player.face;
     const pf = player.moving ? (Math.floor(player.walkT / 0.13) % 2) + 1 : 0;
     const pimg = Sprites.frame('yuyin', pdir, pf);
-    const pw = pimg.width * 2, ph = pimg.height * 2;
+    const pw = pimg.width * 3, ph = pimg.height * 3;
     ctx.fillStyle = 'rgba(0,0,0,0.32)';
-    ctx.beginPath(); ctx.ellipse(px, py + 14, 12, 4.4, 0, 0, 7); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(px, py + 21, 18, 7, 0, 0, 7); ctx.fill();
     ctx.save();
     if (player.face === 'left') { ctx.translate(px, 0); ctx.scale(-1, 1); ctx.translate(-px, 0); }
-    ctx.drawImage(pimg, px - pw / 2, py + 14 - ph, pw, ph);
+    ctx.drawImage(pimg, px - pw / 2, py + 21 - ph, pw, ph);
     ctx.restore();
   }
 
