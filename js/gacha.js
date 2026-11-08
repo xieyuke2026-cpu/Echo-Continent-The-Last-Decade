@@ -40,14 +40,14 @@ const Gacha = (() => {
       const owned = st.chars[entry.id] || 0;
       if (owned === 0) {
         st.chars[entry.id] = 1;
-        return { star: c.star, glyph: c.glyph, name: c.name, tag: c.star + '星 · 新同伴！' };
+        return { star: c.star, glyph: c.glyph, img: Sprites.url(entry.id, 3), name: c.name, tag: c.star + '星 · 新同伴！' };
       }
       if (owned < 7) {
         st.chars[entry.id] = owned + 1;
-        return { star: c.star, glyph: c.glyph, name: c.name, tag: c.star + '星 · 乐魂 ' + owned + '→' + (owned + 1) + '（共7份封顶）' };
+        return { star: c.star, glyph: c.glyph, img: Sprites.url(entry.id, 3), name: c.name, tag: c.star + '星 · 乐魂 ' + owned + '→' + (owned + 1) + '（共7份封顶）' };
       }
       st.shards += 5;
-      return { star: c.star, glyph: c.glyph, name: c.name, tag: '乐魂已满 · 转回声碎片 ×5' };
+      return { star: c.star, glyph: c.glyph, img: Sprites.url(entry.id, 3), name: c.name, tag: '乐魂已满 · 转回声碎片 ×5' };
     }
     if (entry.kind === 'coins') { st.coins += entry.amt; return { star: 0, glyph: entry.glyph, name: entry.label, tag: '物资' }; }
     if (entry.kind === 'shard') { st.shards += entry.amt; return { star: 0, glyph: entry.glyph, name: entry.label, tag: '物资' }; }
@@ -70,7 +70,7 @@ const Gacha = (() => {
     const st = Game.state;
     const list = Object.values(CHARACTERS).map(c => {
       const gated = c.id === 'achi' && !st.flags.achiUnlocked;
-      return `<div class="pull-card r${c.star}"><div class="pc-ava">${c.glyph}</div><div class="pc-name">${c.name}</div><div class="pc-tag">${c.star}星${gated ? ' · 未解锁（序章后）' : ''}</div></div>`;
+      return `<div class="pull-card r${c.star}"><div class="pc-ava"><img src="${Sprites.url(c.id, 3)}" alt="${c.name}"></div><div class="pc-name">${c.name}</div><div class="pc-tag">${c.star}星${gated ? ' · 未解锁（序章后）' : ''}</div></div>`;
     }).join('');
     let html = `<div class="pool-info">普通池（常驻 · 无限定）— 五星 6% / 四星 24% / 物资 70% · ${GUARANTEE_5} 抽保底五星（v0.1 暂定）<br>
       共鸣结晶：<b style="color:#eee6cf">${st.crystals}</b> · 距保底还有 ${GUARANTEE_5 - (st.pullsSince5 || 0)} 抽<br>
@@ -81,7 +81,7 @@ const Gacha = (() => {
       </div>`;
     if (results) {
       html += '<h4>本次共鸣</h4><div class="pull-results">' + results.map(r =>
-        `<div class="pull-card r${r.star}"><div class="pc-ava">${r.glyph}</div><div class="pc-name">${r.name}</div><div class="pc-tag">${r.tag}</div></div>`).join('') + '</div>';
+        `<div class="pull-card r${r.star}"><div class="pc-ava">${r.img ? `<img src="${r.img}" alt="">` : r.glyph}</div><div class="pc-name">${r.name}</div><div class="pc-tag">${r.tag}</div></div>`).join('') + '</div>';
     }
     html += '<h4>池中回声</h4><div class="pull-results">' + list + '</div>';
     return html;

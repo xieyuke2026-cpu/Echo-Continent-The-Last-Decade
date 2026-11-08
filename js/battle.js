@@ -36,7 +36,7 @@ const Battle = (() => {
   function render() {
     $('battle-enemies').innerHTML = B.enemies.map((e, i) => `
       <div class="fighter enemy ${e.dead ? 'dead' : ''}">
-        <div class="avatar">${e.glyph}</div>
+        <div class="avatar"><img src="${Sprites.url(e.id, 5)}" alt="${e.name}"></div>
         <div class="fname">${e.name}</div>
         <div class="hpbar"><div style="width:${Math.max(0, e.hp / e.maxhp * 100)}%"></div></div>
         <div class="fhp">${Math.max(0, Math.ceil(e.hp))} / ${e.maxhp}</div>
@@ -44,7 +44,7 @@ const Battle = (() => {
       `<div id="sound-meter">声量 ${'▮'.repeat(Math.round(B.sound / 10))}${'▯'.repeat(10 - Math.round(B.sound / 10))} ${B.sound}</div>`;
     $('battle-party').innerHTML = B.allies.map((a, i) => `
       <div class="fighter ally ${a.dead ? 'dead' : ''}">
-        <div class="avatar" style="border-color:${a.color}">${a.glyph}</div>
+        <div class="avatar" style="border-color:${a.color}"><img src="${Sprites.url(a.cid, 5)}" alt="${a.name}"></div>
         <div class="fname">${a.name}${i === B.actor && !B.over ? ' ◀' : ''}</div>
         <div class="hpbar"><div style="width:${Math.max(0, a.cur / a.hp * 100)}%"></div></div>
         <div class="fhp">${Math.max(0, Math.ceil(a.cur))} / ${a.hp}${a.guard ? ' · 低鸣中' : ''}</div>

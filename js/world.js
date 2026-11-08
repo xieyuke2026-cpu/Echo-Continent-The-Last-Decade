@@ -114,12 +114,12 @@ const Game = (() => {
   // ---------- 交互对象 ----------
   const OBJS = [
     { id: 'stele', x: 10.5, y: 20.4, glyph: '碑', name: '残碑', color: '#8d8fa0' },
-    { id: 'elder', x: 35.5, y: 21.5, glyph: '婆', name: '村长婆婆', color: '#c9a86a', npc: true },
-    { id: 'villagerA', x: 31.5, y: 24.5, glyph: '灰', name: '守碑人·阿灰', color: '#9d9fb2', npc: true },
-    { id: 'villagerB', x: 38.5, y: 25.5, glyph: '满', name: '守碑人·小满', color: '#93c48d', npc: true },
+    { id: 'elder', x: 35.5, y: 21.5, glyph: '婆', name: '村长婆婆', color: '#c9a86a', npc: true, spr: 'elder' },
+    { id: 'villagerA', x: 31.5, y: 24.5, glyph: '灰', name: '守碑人·阿灰', color: '#9d9fb2', npc: true, spr: 'villagerA' },
+    { id: 'villagerB', x: 38.5, y: 25.5, glyph: '满', name: '守碑人·小满', color: '#93c48d', npc: true, spr: 'villagerB' },
     { id: 'bell', x: 27.5, y: 22.6, glyph: '钟', name: '村口大钟', color: '#b7ac8e' },
     { id: 'well', x: 35.5, y: 22.4, glyph: '井', name: '村里的井', color: '#8fa3c7' },
-    { id: 'shisheng', x: 55.5, y: 23.5, glyph: '拾', name: '拾声', color: '#b87748', npc: true },
+    { id: 'shisheng', x: 55.5, y: 23.5, glyph: '拾', name: '拾声', color: '#b87748', npc: true, spr: 'shisheng' },
     { id: 'heart', x: 58.5, y: 6.5, glyph: '心', name: '城心 · 喊声的源头', color: '#e08a4c', glow: true },
     { id: 'letter', x: 62.5, y: 9.5, glyph: '书', name: '压在塌墙下的遗书', color: '#c9d6ee', glow: true },
     { id: 'echo1', x: 49.5, y: 7.5, glyph: '响', name: '一段回声', color: '#8fa3c7', glow: true },
@@ -420,12 +420,7 @@ const Game = (() => {
     for (let x = Math.floor(camX); x < Math.min(TW, camX + VW + 1); x++)
       for (let y = Math.floor(camY); y < Math.min(TH, camY + VH + 1); y++) {
         const sx = (x - camX) * TILE, sy = (y - camY) * TILE;
-        ctx.fillStyle = TILE_COLORS[tileAt(x, y)];
-        ctx.fillRect(sx, sy, TILE, TILE);
-        const h = hash(x, y);
-        ctx.fillStyle = h > 0.5 ? 'rgba(255,255,255,0.045)' : 'rgba(0,0,0,0.07)';
-        ctx.fillRect(sx + (h * 20) % 22, sy + (h * 40) % 22, 3, 3);
-        if (tileAt(x, y) === 'field' && y % 2 === 0) { ctx.fillStyle = 'rgba(201,168,106,0.12)'; ctx.fillRect(sx, sy + 14, TILE, 3); }
+        ctx.drawImage(Sprites.tile(tileAt(x, y)), sx, sy);
       }
     // 灰线压迫感
     const grad = ctx.createLinearGradient(0, -camY * TILE, 0, (3 - camY) * TILE);
@@ -439,34 +434,15 @@ const Game = (() => {
         ctx.fillStyle = 'rgba(232,226,212,0.28)'; ctx.fillText(z.t, sx, sy);
       }
     }
-    // 固体物
+    // 固体物（像素贴图，底部对齐）
+    ctx.imageSmoothingEnabled = false;
     for (const s of SOLIDS) {
       const sx = (s.x - camX) * TILE, sy = (s.y - camY) * TILE;
-      if (sx < -80 || sy < -80 || sx > cv.width + 80 || sy > cv.height + 80) continue;
-      if (s.kind === 'house') {
-        ctx.fillStyle = '#5d4a36'; ctx.fillRect(sx + 2, sy + 8, s.w * TILE - 4, s.h * TILE - 8);
-        ctx.fillStyle = '#71563c'; ctx.fillRect(sx, sy + 2, s.w * TILE, 10);
-      } else if (s.kind === 'tower') {
-        ctx.fillStyle = '#4c4438'; ctx.fillRect(sx + 3, sy + 2, s.w * TILE - 6, s.h * TILE - 2);
-        ctx.fillStyle = '#c9a86a'; ctx.beginPath(); ctx.arc(sx + s.w * TILE / 2, sy + 16, 7, 0, 7); ctx.fill();
-      } else if (s.kind === 'wall') {
-        ctx.fillStyle = '#43424e'; ctx.fillRect(sx + 1, sy + 4, s.w * TILE - 2, s.h * TILE - 6);
-        ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fillRect(sx + 1, sy + 4, s.w * TILE - 2, 3);
-      } else if (s.kind === 'stele') {
-        ctx.fillStyle = '#55565f'; ctx.fillRect(sx + 9, sy - 8, 14, 40);
-        ctx.fillStyle = '#c9c4b2'; ctx.font = '11px sans-serif'; ctx.fillText('碑', sx + 16, sy + 14);
-      } else if (s.kind === 'well') {
-        ctx.fillStyle = '#3d4a5a'; ctx.beginPath(); ctx.arc(sx + 16, sy + 16, 10, 0, 7); ctx.fill();
-      } else if (s.kind === 'bigstone') {
-        ctx.fillStyle = '#5a584c'; ctx.beginPath(); ctx.arc(sx + 16, sy + 16, 14, 0, 7); ctx.fill();
-        ctx.fillStyle = '#2e2d26'; ctx.beginPath(); ctx.arc(sx + 16, sy + 16, 5, 0, 7); ctx.fill();
-      } else if (s.kind === 'rock') {
-        ctx.fillStyle = '#4c4a41'; ctx.beginPath(); ctx.arc(sx + 16, sy + 18, 9, 0, 7); ctx.fill();
-      } else if (s.kind === 'tree') {
-        ctx.fillStyle = '#33302a'; ctx.fillRect(sx + 14, sy + 10, 4, 16);
-        ctx.strokeStyle = '#33302a'; ctx.lineWidth = 3;
-        ctx.beginPath(); ctx.moveTo(sx + 16, sy + 12); ctx.lineTo(sx + 6, sy + 2); ctx.moveTo(sx + 16, sy + 12); ctx.lineTo(sx + 27, sy + 4); ctx.stroke();
-      }
+      if (sx < -160 || sy < -160 || sx > cv.width + 80 || sy > cv.height + 80) continue;
+      const img = Sprites.obj(s.kind, s.w, s.h);
+      const dx = sx + (s.w * TILE - img.width) / 2;
+      const dy = sy + s.h * TILE - img.height;
+      ctx.drawImage(img, dx, dy);
     }
     // 涟漪（脚步声）
     for (const r of ripples) {
@@ -482,20 +458,34 @@ const Game = (() => {
         ctx.strokeStyle = `rgba(255,217,138,${0.5 + 0.3 * Math.sin(t / 300)})`; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(sx, sy, 13 + 2 * Math.sin(t / 300), 0, 7); ctx.stroke();
       }
-      ctx.fillStyle = o.npc ? '#2c2d38' : 'rgba(30,30,38,0.85)';
-      ctx.beginPath(); ctx.arc(sx, sy, 13, 0, 7); ctx.fill();
-      ctx.strokeStyle = o.color; ctx.lineWidth = 2; ctx.stroke();
-      ctx.fillStyle = o.color; ctx.font = '14px sans-serif'; ctx.fillText(o.glyph, sx, sy + 5);
+      let labelY = sy - 20;
+      if (o.spr) {
+        const img = Sprites.char(o.spr);
+        const sc = 2 * Sprites.peopleScale(o.spr);
+        const w = img.width * sc, h = img.height * sc;
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath(); ctx.ellipse(sx, sy + 12, 11, 4, 0, 0, 7); ctx.fill();
+        ctx.drawImage(img, sx - w / 2, sy + 12 - h, w, h);
+        labelY = sy + 12 - h - 6;
+      } else {
+        ctx.fillStyle = 'rgba(30,30,38,0.85)';
+        ctx.beginPath(); ctx.arc(sx, sy, 13, 0, 7); ctx.fill();
+        ctx.strokeStyle = o.color; ctx.lineWidth = 2; ctx.stroke();
+        ctx.fillStyle = o.color; ctx.font = '14px sans-serif'; ctx.fillText(o.glyph, sx, sy + 5);
+      }
       const near = Math.hypot(o.x - player.x, o.y - player.y) < 1.8;
       ctx.font = '11px sans-serif';
       ctx.fillStyle = near ? 'rgba(238,230,207,0.95)' : 'rgba(232,226,212,0.55)';
-      ctx.fillText(near ? o.name + '（E）' : o.name, sx, sy - 20);
+      ctx.fillText(near ? o.name + '（E）' : o.name, sx, labelY);
     }
-    // 玩家
+    // 玩家（像素小人，走路时轻微起伏）
     const px = (player.x - camX) * TILE, py = (player.y - camY) * TILE;
-    ctx.fillStyle = '#1e1f26'; ctx.beginPath(); ctx.arc(px, py, 14, 0, 7); ctx.fill();
-    ctx.strokeStyle = '#c9a86a'; ctx.lineWidth = 2.5; ctx.stroke();
-    ctx.fillStyle = '#e8dfc2'; ctx.font = '15px sans-serif'; ctx.fillText('律', px, py + 5);
+    const pimg = Sprites.char('yuyin');
+    const pw = pimg.width * 2.2, ph = pimg.height * 2.2;
+    const bob = player.moving ? Math.abs(Math.sin(t / 110)) * 2.4 : 0;
+    ctx.fillStyle = 'rgba(0,0,0,0.32)';
+    ctx.beginPath(); ctx.ellipse(px, py + 13, 12, 4.4, 0, 0, 7); ctx.fill();
+    ctx.drawImage(pimg, px - pw / 2, py + 13 - ph - bob, pw, ph);
   }
 
   // ---------- 启动 ----------
